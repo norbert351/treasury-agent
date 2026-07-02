@@ -1,0 +1,31 @@
+{
+  "name": "unicity-treasury-agent",
+  "version": "1.0.0",
+  "description": "Autonomous treasury agent on Unicity Sphere — manages budgets, recurring payments, and alerts",
+  "type": "module",
+  "scripts": {
+    "agent": "tsx src/agent.ts",
+    "api": "tsx src/api/server.ts",
+    "dev": "concurrently \"tsx src/agent.ts\" \"tsx src/api/server.ts\"",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@unicitylabs/sphere-sdk": "^0.11.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "drizzle-orm": "^0.38.0",
+    "express": "^4.21.0",
+    "postgres": "^3.4.0",
+    "ws": "^8.21.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "concurrently": "^9.1.0",
+    "drizzle-kit": "^0.30.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

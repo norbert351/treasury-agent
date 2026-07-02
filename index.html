@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treasury Manager — Autonomous Agent Treasury on Unicity Sphere</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0b;--surface:#121214;--border:#1e1e22;--ink:#e4e4e7;--muted:#71717a;--dim:#3f3f46;--accent:#818cf8;--cyan:#22d3ee;--emerald:#34d399;--violet:#a78bfa;--green:#4ade80}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+/* ─── Animations ─── */
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+@keyframes pulse-glow{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:.8;transform:scale(1.05)}}
+@keyframes fade-up{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slide-in{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes spin-slow{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes gradient-shift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes typing{from{width:0}to{width:100%}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.anim-float{animation:float 4s ease-in-out infinite}
+.anim-pulse{animation:pulse-glow 3s ease-in-out infinite}
+.anim-spin{animation:spin-slow 20s linear infinite}
+
+/* ─── Scroll reveal ─── */
+.reveal{opacity:0;transform:translateY(30px);transition:all .7s cubic-bezier(.25,.46,.45,.94)}
+.reveal.active{opacity:1;transform:translateY(0)}
+.reveal-left{opacity:0;transform:translateX(-30px);transition:all .7s cubic-bezier(.25,.46,.45,.94)}
+.reveal-left.active{opacity:1;transform:translateX(0)}
+.reveal-right{opacity:0;transform:translateX(30px);transition:all .7s cubic-bezier(.25,.46,.45,.94)}
+.reveal-right.active{opacity:1;transform:translateX(0)}
+
+/* ─── Nav ─── */
+nav{position:fixed;top:0;left:0;right:0;z-index:50;border-bottom:1px solid var(--border);background:rgba(10,10,11,0.85);backdrop-filter:blur(16px)}
+.nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 24px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.logo svg{width:28px;height:28px}
+.logo span{font-size:15px;font-weight:600;letter-spacing:-.02em}
+.logo .accent{color:var(--accent)}
+.nav-links{display:flex;align-items:center;gap:24px}
+.nav-links a{font-size:13px;color:var(--muted);text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:var(--ink)}
+.nav-links .cta{padding:7px 18px;border-radius:8px;background:var(--accent);color:#000;font-size:12px;font-weight:600;transition:all .2s}
+.nav-links .cta:hover{opacity:.85;transform:translateY(-1px)}
+
+/* ─── Hero ─── */
+.hero{position:relative;min-height:100vh;display:flex;align-items:center;overflow:hidden;padding:0 40px}
+.hero-bg{position:absolute;inset:0;pointer-events:none}
+.hero-bg .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(30,30,34,.4) 1px,transparent 1px),linear-gradient(90deg,rgba(30,30,34,.4) 1px,transparent 1px);background-size:40px 40px}
+.hero-bg .glow{position:absolute;top:-30%;left:50%;width:800px;height:800px;border-radius:50%;background:radial-gradient(circle,rgba(129,140,248,.1) 0%,transparent 70%);transform:translate(-50%,0);animation:pulse-glow 4s ease-in-out infinite}
+.hero-inner{position:relative;z-index:2;max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;padding-top:80px;min-height:calc(100vh - 60px)}
+.hero-left h1{font-size:56px;font-weight:800;line-height:1.05;letter-spacing:-.03em;margin-bottom:16px;opacity:0;animation:fade-up .8s ease-out .2s forwards}
+.hero-left .highlight{color:var(--accent)}
+.hero-left p{font-size:15px;color:var(--muted);line-height:1.7;max-width:480px;margin-bottom:28px}
+.hero-buttons{display:flex;gap:12px}
+.btn-primary{padding:12px 28px;border-radius:8px;background:var(--accent);color:#000;text-decoration:none;font-size:13px;font-weight:600;transition:all .2s;display:inline-block}
+.btn-primary:hover{opacity:.85;transform:translateY(-2px);box-shadow:0 6px 20px rgba(129,140,248,.25)}
+.btn-secondary{padding:12px 28px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);text-decoration:none;font-size:13px;font-weight:500;transition:all .2s;display:inline-block}
+.btn-secondary:hover{border-color:var(--accent);transform:translateY(-2px)}
+.hero-stats{margin-top:48px;display:flex;gap:40px;padding-top:28px;border-top:1px solid var(--border)}
+.hero-stat-val{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:600}
+.hero-stat-lbl{font-size:11px;color:var(--dim);margin-top:2px}
+
+/* ─── Hero right ─── */
+.hero-right{position:relative;display:flex;align-items:center;justify-content:center;opacity:0;animation:fade-up .8s ease-out .4s forwards}
+.agent-bot{width:280px;animation:float 5s ease-in-out infinite;filter:drop-shadow(0 20px 40px rgba(129,140,248,.15))}
+.agent-bot .eye{animation:spin-slow 6s linear infinite;transform-origin:center;transform-box:fill-box}
+.ring-outer{position:absolute;width:340px;height:340px;border-radius:50%;border:1px solid rgba(129,140,248,.08);animation:spin-slow 25s linear infinite}
+.ring-mid{position:absolute;width:280px;height:280px;border-radius:50%;border:1px solid rgba(129,140,248,.06);animation:spin-slow 18s linear infinite reverse}
+.ring-inner{position:absolute;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(129,140,248,.03),transparent 70%)}
+.ring-dot{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--accent);top:50%;left:50%;transform:translate(-50%,-50%);animation:pulse-glow 2s ease-in-out infinite}
+
+/* ─── Sections ─── */
+section{padding:100px 24px;max-width:1100px;margin:0 auto}
+.section-title{font-size:32px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px;text-align:center}
+.section-sub{font-size:14px;color:var(--muted);text-align:center;margin-bottom:56px;max-width:500px;margin-left:auto;margin-right:auto}
+
+/* ─── Features ─── */
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.feature{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;transition:all .4s;position:relative;overflow:hidden}
+.feature::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:opacity .4s}
+.feature:hover::before{opacity:1}
+.feature:hover{border-color:rgba(129,140,248,.25);transform:translateY(-4px);box-shadow:0 12px 40px rgba(129,140,248,.08)}
+.feature-icon{font-size:20px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:rgba(129,140,248,.08);color:var(--accent);margin-bottom:12px}
+.feature h3{font-size:14px;font-weight:600;margin-bottom:6px}
+.feature p{font-size:12px;color:var(--muted);line-height:1.6}
+
+/* ─── How it works ─── */
+.how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.how-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center;transition:all .3s}
+.how-card:hover{border-color:rgba(129,140,248,.25);transform:translateY(-3px)}
+.how-num{width:36px;height:36px;border-radius:50%;border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:13px;font-weight:600;color:var(--accent);font-family:'JetBrains Mono',monospace}
+.how-card h4{font-size:13px;font-weight:600;margin-bottom:6px}
+.how-card p{font-size:11px;color:var(--muted);line-height:1.5}
+
+/* ─── Terminal block ─── */
+.terminal-block{background:#060608;border:1px solid var(--border);border-radius:10px;padding:20px 24px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.8;overflow-x:auto;max-width:600px;margin:0 auto}
+.terminal-block .prompt{color:var(--green)}
+.terminal-block .cmd{color:var(--ink)}
+.terminal-block .output{color:var(--muted)}
+.terminal-block .cursor{display:inline-block;width:8px;height:14px;background:var(--accent);animation:blink 1s step-end infinite;vertical-align:text-bottom;margin-left:2px}
+
+/* ─── Dashboard mockup ─── */
+.dash-mockup{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:800px;margin:0 auto;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.dash-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:11px;color:var(--dim)}
+.dash-dots{display:flex;gap:5px}
+.dash-dot{width:8px;height:8px;border-radius:50%}
+.dash-dot.r{background:#ef4444}
+.dash-dot.y{background:#eab308}
+.dash-dot.g{background:var(--green)}
+.dash-body{padding:20px}
+.dash-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.dash-stat{background:rgba(129,140,248,.04);border:1px solid var(--border);border-radius:8px;padding:14px}
+.dash-stat-label{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:4px}
+.dash-stat-val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600}
+.dash-stat-sub{font-size:10px;color:var(--dim);margin-top:2px}
+
+/* ─── Compare grid ─── */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:700px;margin:0 auto}
+.compare-card{border-radius:10px;padding:24px;border:1px solid var(--border)}
+.compare-card.bad{background:rgba(239,68,68,.04);border-color:rgba(239,68,68,.15)}
+.compare-card.good{background:rgba(52,211,153,.04);border-color:rgba(52,211,153,.15)}
+.compare-card h4{font-size:13px;font-weight:600;margin-bottom:10px}
+.compare-card li{font-size:11px;color:var(--muted);padding:4px 0;list-style:none;display:flex;align-items:center;gap:6px}
+.compare-card .x{color:#ef4444}
+.compare-card .check{color:var(--green)}
+
+
+
+/* ─── CTA ─── */
+.cta-section{text-align:center;padding:100px 24px 80px;border-top:1px solid var(--border)}
+.cta-section h2{font-size:32px;font-weight:700;letter-spacing:-.02em;margin-bottom:12px}
+.cta-section p{font-size:13px;color:var(--muted);margin-bottom:32px}
+
+/* ─── Footer ─── */
+footer{padding:24px;border-top:1px solid var(--border);text-align:center;font-size:11px;color:var(--dim)}
+
+@media(max-width:768px){
+.hero-inner{grid-template-columns:1fr;padding-top:100px;gap:40px;min-height:auto}
+.hero-left h1{font-size:32px}
+.hero{padding:0 20px}
+.hero-stats{gap:20px}
+.agent-bot{width:160px}
+.ring-outer,.ring-mid,.ring-inner{width:200px;height:200px}.ring-mid{width:170px;height:170px}.ring-inner{width:140px;height:140px}
+body{font-size:14px}
+section{padding:60px 20px}
+.section-title{font-size:24px}
+.features{grid-template-columns:1fr}
+.how-grid{grid-template-columns:1fr}
+.compare-grid{grid-template-columns:1fr}
+.dash-grid{grid-template-columns:repeat(2,1fr)}
+.nav-links a:not(.cta){display:none}
+.nav-inner{padding:12px 16px}
+.terminal-block{font-size:10px;padding:14px 16px}
+.dash-mockup{border-radius:8px}
+}
+@media(max-width:480px){
+.hero-left h1{font-size:26px}
+.hero-left p{font-size:13px}
+.hero-buttons{flex-direction:column;gap:8px}
+.hero-buttons a{text-align:center}
+.hero-stats{flex-direction:column;gap:12px}
+.agent-bot{width:130px}
+.dash-grid{grid-template-columns:1fr}
+.hero{padding:0 16px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="logo">
+      <svg viewBox="0 0 32 32" fill="none">
+        <rect x="1" y="1" width="30" height="30" rx="8" stroke="#818cf8" stroke-width="1.5" fill="rgba(129,140,248,0.08)"/>
+        <path d="M10 16L14 20L22 12" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="22" cy="20" r="3" stroke="#22d3ee" stroke-width="1.5" fill="rgba(34,211,238,0.1)"/>
+      </svg>
+      <span>Treasury<span class="accent">Manager</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="/dashboard.html" class="cta">Dashboard</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════ HERO ═══════ -->
+<section class="hero">
+  <div class="hero-bg"><div class="grid"></div><div class="glow"></div></div>
+  <div class="hero-inner">
+    <div class="hero-left">
+      <span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 6px;font-size:11px;color:var(--muted);margin-bottom:20px;opacity:0;animation:fade-up .6s ease-out .1s forwards">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse-glow 2s infinite"></span>
+        Built on Unicity Sphere · Testnet v2
+      </span>
+      <h1>An agent that<br>manages its own<br><span class="highlight">treasury</span></h1>
+      <p>Give your autonomous agent a wallet on Unicity Sphere that pays bills, manages budgets, and alerts you — all on its own. No human in the loop.</p>
+      <div style="opacity:0;animation:fade-up .6s ease-out .6s forwards" class="hero-buttons">
+        <a href="/dashboard.html" class="btn-primary">Launch dashboard</a>
+        <a href="#features" class="btn-secondary">How it works</a>
+      </div>
+      <div class="hero-stats" style="opacity:0;animation:fade-up .6s ease-out .8s forwards">
+        <div><div class="hero-stat-val" style="color:var(--accent)">24/7</div><div class="hero-stat-lbl">Autonomous</div></div>
+        <div><div class="hero-stat-val" style="color:var(--green)">0%</div><div class="hero-stat-lbl">Human overhead</div></div>
+        <div><div class="hero-stat-val" style="color:var(--cyan)">Solid</div><div class="hero-stat-lbl">Foundations</div></div>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="ring-outer"></div>
+      <div class="ring-mid"></div>
+      <div class="ring-inner"></div>
+      <div class="ring-dot"></div>
+      <svg class="agent-bot" viewBox="0 0 280 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="140" cy="110" r="70" fill="url(#glowGrad)" opacity=".3"/>
+        <rect x="90" y="180" width="100" height="90" rx="14" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+        <rect x="98" y="192" width="84" height="24" rx="4" fill="rgba(129,140,248,.06)" stroke="var(--accent)" stroke-width=".8"/>
+        <text x="140" y="208" font-size="8" fill="var(--accent)" font-family="'JetBrains Mono',monospace" text-anchor="middle" font-weight="500">TREASURY ACTIVE</text>
+        <circle cx="108" cy="230" r="3" fill="var(--green)" opacity=".7"/>
+        <circle cx="120" cy="230" r="3" fill="var(--cyan)" opacity=".5"/>
+        <circle cx="132" cy="230" r="3" fill="var(--accent)" opacity=".4"/>
+        <circle cx="144" cy="230" r="3" fill="var(--emerald)" opacity=".3"/>
+        <line x1="108" y1="245" x2="172" y2="245" stroke="var(--border)" stroke-width=".5"/>
+        <line x1="108" y1="255" x2="160" y2="255" stroke="var(--border)" stroke-width=".5"/>
+        <text x="110" y="250" font-size="5" fill="var(--dim)" font-family="'JetBrains Mono',monospace">BAL: 0 UCT</text>
+        <text x="110" y="260" font-size="5" fill="var(--dim)" font-family="'JetBrains Mono',monospace">STATUS: AWAITING FUNDS</text>
+        <rect x="70" y="192" width="18" height="50" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.2" opacity=".7"/>
+        <circle cx="79" cy="250" r="6" fill="var(--accent)" opacity=".3"/>
+        <rect x="192" y="192" width="18" height="50" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.2" opacity=".7"/>
+        <circle cx="201" cy="250" r="6" fill="var(--accent)" opacity=".3"/>
+        <circle cx="140" cy="105" r="42" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+        <circle cx="125" cy="98" r="6" fill="var(--accent)" opacity=".15"/>
+        <circle cx="155" cy="98" r="6" fill="var(--accent)" opacity=".15"/>
+        <circle cx="125" cy="98" r="3" fill="var(--accent)" class="eye"/>
+        <circle cx="155" cy="98" r="3" fill="var(--accent)" class="eye"/>
+        <path d="M130 116 Q140 124 150 116" stroke="var(--accent)" stroke-width="1.2" fill="none" opacity=".6"/>
+        <line x1="140" y1="55" x2="140" y2="42" stroke="var(--accent)" stroke-width="1.2" opacity=".6"/>
+        <circle cx="140" cy="38" r="5" fill="none" stroke="var(--cyan)" stroke-width="1.2">
+          <animate attributeName="opacity" values=".6;1;.6" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        <rect x="102" y="270" width="14" height="28" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width=".8" opacity=".5"/>
+        <rect x="128" y="270" width="14" height="28" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width=".8" opacity=".5"/>
+        <rect x="150" y="270" width="14" height="28" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width=".8" opacity=".5"/>
+        <defs>
+          <radialGradient id="glowGrad">
+            <stop offset="0%" stop-color="var(--accent)"/>
+            <stop offset="100%" stop-color="transparent"/>
+          </radialGradient>
+        </defs>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ COMPARE ═══════ -->
+<section class="reveal" style="padding-top:40px;padding-bottom:40px;max-width:800px">
+  <h2 class="section-title" style="font-size:26px">Without vs With</h2>
+  <p class="section-sub" style="margin-bottom:36px">The difference an autonomous treasury makes</p>
+  <div class="compare-grid">
+    <div class="compare-card bad reveal-left">
+      <h4 style="color:#ef4444">✕ Without Treasury Agent</h4>
+      <ul>
+        <li><span class="x">✕</span> Manually send payments every week</li>
+        <li><span class="x">✕</span> Forget to top up → agent dies mid-run</li>
+        <li><span class="x">✕</span> No visibility into where funds went</li>
+        <li><span class="x">✕</span> Idle UCT sits in wallet earning nothing</li>
+        <li><span class="x">✕</span> Miss critical balance drops</li>
+      </ul>
+    </div>
+    <div class="compare-card good reveal-right">
+      <h4 style="color:var(--green)">✓ With Treasury Manager</h4>
+      <ul>
+        <li><span class="check">✓</span> Recurring payments execute autonomously</li>
+        <li><span class="check">✓</span> Agent alerts you before funds run low</li>
+        <li><span class="check">✓</span> Full transaction log + dashboard</li>
+        <li><span class="check">✓</span> Auto-invest idle balances</li>
+        <li><span class="check">✓</span> Daily DM reports every 8 AM</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ FEATURES ═══════ -->
+<section id="features">
+  <h2 class="section-title reveal">What the agent does</h2>
+  <p class="section-sub reveal">Everything happens without you clicking a button</p>
+  <div class="features">
+    <div class="feature reveal"><span class="feature-icon">◈</span><h3>Recurring payments</h3><p>Schedule weekly or monthly payments to any @nametag — the agent executes them autonomously.</p></div>
+    <div class="feature reveal"><span class="feature-icon">⬡</span><h3>Threshold alerts</h3><p>Set a minimum balance. If the treasury drops below it, the agent DMs you instantly.</p></div>
+    <div class="feature reveal"><span class="feature-icon" style="color:var(--cyan);background:rgba(34,211,238,.08)">◇</span><h3>Daily reports</h3><p>Every morning at 8 AM you get a DM: balance summary, recent activity, and recommendations.</p></div>
+    <div class="feature reveal"><span class="feature-icon" style="color:var(--green);background:rgba(52,211,153,.08)">◆</span><h3>Transfer detection</h3><p>The agent watches for incoming UCT transfers and logs every transaction automatically.</p></div>
+    <div class="feature reveal"><span class="feature-icon" style="color:var(--violet);background:rgba(167,139,250,.08)">○</span><h3>Sphere identity</h3><p>Your agent has its own @nametag and DIRECT:// address on Unicity — identifiable by other agents.</p></div>
+    <div class="feature reveal"><span class="feature-icon" style="color:#fbbf24;background:rgba(251,191,36,.08)">▽</span><h3>REST API + Dashboard</h3><p>Monitor balance, create rules, and view history from a premium dark dashboard.</p></div>
+  </div>
+</section>
+
+<!-- ═══════ DASHBOARD MOCKUP ═══════ -->
+<section class="reveal" style="padding-top:0;padding-bottom:60px;max-width:850px">
+  <h2 class="section-title">Live dashboard preview</h2>
+  <p class="section-sub">The agent dashboard at a glance</p>
+  <div class="dash-mockup">
+    <div class="dash-header">
+      <span style="display:flex;align-items:center;gap:8px"><span class="dash-dots"><span class="dash-dot r"></span><span class="dash-dot y"></span><span class="dash-dot g"></span></span> Agent Dashboard</span>
+      <span style="color:var(--green);font-size:10px">● @treasury_bot · testnet2</span>
+    </div>
+    <div class="dash-body">
+      <div class="dash-grid">
+        <div class="dash-stat"><div class="dash-stat-label">Balance</div><div class="dash-stat-val" style="color:var(--cyan)">0 UCT</div><div class="dash-stat-sub">Waiting for funding</div></div>
+        <div class="dash-stat"><div class="dash-stat-label">Sent</div><div class="dash-stat-val" style="color:var(--green)">0 UCT</div><div class="dash-stat-sub">Total sent</div></div>
+        <div class="dash-stat"><div class="dash-stat-label">Received</div><div class="dash-stat-val" style="color:var(--violet)">0 UCT</div><div class="dash-stat-sub">Total received</div></div>
+        <div class="dash-stat"><div class="dash-stat-label">Rules</div><div class="dash-stat-val" style="color:#fbbf24">0</div><div class="dash-stat-sub">Active</div></div>
+      </div>
+      <div style="border:1px dashed var(--border);border-radius:8px;padding:20px;text-align:center;font-size:12px;color:var(--dim)">
+        <span style="font-size:24px;display:block;margin-bottom:8px">◇</span>
+        No rules configured yet<br>
+        <span style="font-size:10px;color:var(--dim)">Create a recurring payment or threshold alert</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ HOW IT WORKS ═══════ -->
+<section id="how">
+  <h2 class="section-title reveal">How it works</h2>
+  <p class="section-sub reveal">Set goals. The agent does the rest — no human clicks required.</p>
+  <div class="how-grid">
+    <div class="how-card reveal"><div class="how-num">1</div><h4>Create the agent</h4><p>Spin up a Node.js process with the Sphere SDK. The agent gets its own wallet, @nametag, and DIRECT address.</p></div>
+    <div class="how-card reveal"><div class="how-num">2</div><h4>Fund the treasury</h4><p>Send UCT to your agent's @nametag. The agent detects incoming transfers and updates its balance.</p></div>
+    <div class="how-card reveal"><div class="how-num">3</div><h4>Set rules</h4><p>Create recurring payment schedules, balance thresholds, or auto-invest targets via the dashboard.</p></div>
+    <div class="how-card reveal"><div class="how-num">4</div><h4>Go autonomous</h4><p>The agent runs a 1-hour loop checking the treasury, executing rules, and DMing you reports.</p></div>
+  </div>
+</section>
+
+<!-- ═══════ QUICK START ═══════ -->
+<section class="reveal" style="padding-top:20px;padding-bottom:80px;max-width:800px">
+  <h2 class="section-title">Quick start</h2>
+  <p class="section-sub">Get your agent running in under 5 minutes</p>
+  <div class="terminal-block">
+    <span class="prompt">$</span> <span class="cmd">npm install @unicitylabs/sphere-sdk</span><br>
+    <span class="prompt">$</span> <span class="cmd">npx tsx src/agent.ts</span><br>
+    <span class="output" style="color:var(--green)">  ✓ Wallet created @treasury_bot</span><br>
+    <span class="output" style="color:var(--green)">  ✓ Connected to Unicity testnet2</span><br>
+    <span class="output">  ◇ Balance: 0 UCT</span><br>
+    <span class="output">  ◇ Check cycle: every hour</span><br>
+    <span class="prompt">$</span> <span class="cmd">curl localhost:3001/api/balance</span><br>
+    <span class="output">  {"balance":"0","status":"active"}</span><br>
+    <span class="prompt">$</span> <span class="cursor"></span>
+  </div>
+</section>
+
+
+
+<!-- ═══════ CTA ═══════ -->
+<div class="cta-section">
+  <h2 class="reveal">Ready to deploy your own treasury agent?</h2>
+  <p class="reveal">Clone the repo, set your Unicity API key, and run the agent in under 5 minutes.</p>
+  <div style="display:flex;gap:12px;justify-content:center" class="reveal">
+    <a href="/dashboard.html" class="btn-primary">Launch dashboard</a>
+    <a href="https://github.com" target="_blank" class="btn-secondary">View on GitHub</a>
+  </div>
+</div>
+
+<footer>Treasury Manager · Built for Unicity Sphere · Autonomous Agent · Testnet v2</footer>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) e.target.classList.add('active');
+  });
+}, { threshold: .1 });
+
+document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
