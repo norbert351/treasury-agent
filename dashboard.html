@@ -7,59 +7,84 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0a0a0b;--surface:#121214;--border:#1e1e22;--ink:#e4e4e7;--muted:#71717a;--dim:#3f3f46;--cyan:#22d3ee;--emerald:#34d399;--violet:#a78bfa;--amber:#fbbf24;--rose:#fb7185;--accent:#818cf8;--grid:#18181b}
-body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column}
+:root{--bg:#0a0a0b;--surface:#121214;--border:#1e1e22;--ink:#e4e4e7;--muted:#71717a;--dim:#3f3f46;--cyan:#22d3ee;--emerald:#34d399;--violet:#a78bfa;--amber:#fbbf24;--rose:#fb7185;--accent:#818cf8;--grid:#18181b;--sidebar-w:180px;--radius-sm:6px;--radius-md:8px;--radius-lg:12px}
+.light{--bg:#f5f5f7;--surface:#ffffff;--border:#e0e0e4;--ink:#1a1a1e;--muted:#8a8a92;--dim:#b0b0b8;--cyan:#0891b2;--emerald:#059669;--violet:#7c3aed;--amber:#d97706;--rose:#e11d48;--accent:#6366f1;--grid:#e8e8ec}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;min-height:100vh;display:block}
 ::selection{background:var(--accent);color:#000}
-.layout{display:grid;grid-template-columns:52px 1fr;min-height:100vh}
-/* Sidebar */
-.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:4px}
-.logo{width:28px;height:28px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#000;margin-bottom:20px}
-.nav-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--dim);cursor:pointer;transition:all .15s;font-size:13px}
-.nav-icon:hover{color:var(--ink);background:var(--grid)}
-.nav-icon.active{color:var(--accent);background:rgba(129,140,248,.1)}
-.main{padding:24px 32px;max-width:1200px}
-/* Header */
-.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px}
+a{color:var(--accent);text-decoration:none}
+.landing{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;max-width:500px;margin:0 auto;padding:40px 24px}
+.landing .logo{font-size:42px;margin-bottom:16px}
+.landing h1{font-size:28px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
+.landing p{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:32px}
+.landing .actions{display:flex;flex-direction:column;gap:12px}
+.btn-primary{padding:12px 28px;border-radius:8px;background:var(--accent);color:#000;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary:hover{opacity:.85;transform:translateY(-1px);box-shadow:0 6px 20px rgba(129,140,248,.25)}
+.btn-secondary{padding:12px 28px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s}
+.btn-secondary:hover{border-color:var(--accent)}
+.input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:13px;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color .15s}
+.input:focus{border-color:var(--accent)}
+.load-row{display:flex;gap:8px}
+.load-row .input{flex:1}
+.hint{font-size:11px;color:var(--dim);margin-top:4px}
+summary{color:var(--accent);font-size:12px;padding:6px 0;cursor:pointer}
+details{margin-top:8px;text-align:left}
+.layout{display:none;grid-template-columns:var(--sidebar-w) minmax(0,1fr);min-height:100vh;width:100%}
+.layout.active{display:grid}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 0;gap:2px;min-width:0}
+.sidebar-overlay{display:none}
+.sidebar .logo{width:28px;height:28px;border-radius:var(--radius-md);background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#000;margin:0 16px 20px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 16px;margin:1px 8px;border-radius:var(--radius-sm);color:var(--dim);cursor:pointer;transition:all .15s;font-size:12px;font-weight:500}
+.nav-item:hover{color:var(--ink);background:var(--grid)}
+.nav-item.active{color:var(--accent);background:rgba(129,140,248,.1)}
+.nav-item .nav-icon{width:20px;text-align:center;font-size:14px;flex-shrink:0}
+.nav-item .nav-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-item.spacer{flex:1;cursor:default}
+.nav-item.spacer:hover{background:transparent}
+.mobile-hamburger{display:none;position:fixed;top:12px;left:12px;z-index:50;width:36px;height:36px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);color:var(--ink);font-size:18px;cursor:pointer;align-items:center;justify-content:center;transition:all .15s}
+.mobile-hamburger:hover{background:var(--grid)}
+@media(max-width:768px){
+  .layout.active{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:40;transform:translateX(-100%);transition:transform .25s ease;width:220px;box-shadow:4px 0 20px rgba(0,0,0,.3)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay{display:none;position:fixed;inset:0;z-index:39;background:rgba(0,0,0,.5)}
+  .sidebar-overlay.active{display:block}
+  .mobile-hamburger{display:flex}
+  .main{padding:16px;padding-top:60px}
+}
+.main{padding:24px 32px;max-width:1200px;width:100%}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
 .header-left h1{font-size:15px;font-weight:600;letter-spacing:-.01em}
 .header-left p{font-size:12px;color:var(--muted);margin-top:2px}
 .header-right{display:flex;align-items:center;gap:12px}
 .badge{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:var(--surface);border:1px solid var(--border);font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted)}
-.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--emerald);animation:pulse 2s ease-in-out infinite}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--emerald);animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-/* Stats row */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.logout-btn{font-size:11px;color:var(--dim);cursor:pointer;background:none;border:none;padding:4px 8px;border-radius:4px;transition:all .15s}
+.logout-btn:hover{color:var(--rose);background:rgba(251,113,133,.1)}
+.agent-bar{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;margin-bottom:20px;flex-wrap:wrap}
+.agent-bar .label{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+.agent-bar .addr{font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:500;font-size:11px;word-break:break-all}
+.copy-btn{padding:4px 10px;border-radius:4px;font-size:10px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--grid);color:var(--muted);transition:all .15s;font-family:'Inter',sans-serif}
+.copy-btn:hover{border-color:var(--accent);color:var(--ink)}
+.nametag-row{display:flex;gap:6px;align-items:center}
+.nametag-row .input{width:180px;padding:6px 10px;font-size:11px}
+.nametag-row .copy-btn{padding:6px 10px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
 .stat-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
 .stat-value{font-size:22px;font-weight:600;letter-spacing:-.02em;font-family:'JetBrains Mono',monospace}
 .stat-value.cyan{color:var(--cyan)}
 .stat-value.emerald{color:var(--emerald)}
-.stat-value.violet{color:var(--violet)}
-.stat-value.amber{color:var(--amber)}
 .stat-sub{font-size:11px;color:var(--dim);margin-top:2px}
-/* Agent card */
-.agent-grid{display:grid;grid-template-columns:1.2fr 0.8fr;gap:16px;margin-bottom:28px}
+.agent-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:24px}
 .agent-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px}
 .card-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:6px}
-.wallet-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
-.wallet-row:last-child{border-bottom:none}
-.wallet-label{font-size:12px;color:var(--muted)}
-.wallet-value{font-size:13px;font-weight:500;font-family:'JetBrains Mono',monospace}
-.balance-large{font-size:36px;font-weight:600;letter-spacing:-.03em;font-family:'JetBrains Mono',monospace;color:var(--cyan);margin:8px 0 4px}
-.address{font-size:11px;color:var(--dim);font-family:'JetBrains Mono',monospace;word-break:break-all}
-.copy-btn{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--accent);cursor:pointer;background:none;border:none;font-family:'Inter',sans-serif;padding:2px 6px;border-radius:4px}
-.copy-btn:hover{background:rgba(129,140,248,.1)}
-.connect-btn{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:6px;background:var(--surface);border:1px solid var(--border);font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted);cursor:pointer;transition:all .15s}
-.connect-btn:hover{border-color:var(--accent);color:var(--ink)}
-.connect-btn.connected{border-color:var(--emerald);color:var(--emerald)}
-.connect-dot{width:6px;height:6px;border-radius:50%;background:var(--dim);transition:all .15s}
-.connect-btn.connected .connect-dot{background:var(--emerald);animation:pulse 2s ease-in-out infinite}
-/* Metric items */
 .metric-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
 .metric-row:last-child{border-bottom:none}
 .metric-name{font-size:12px;color:var(--muted)}
 .metric-val{font-size:13px;font-weight:500;font-family:'JetBrains Mono',monospace}
 .metric-val.green{color:var(--emerald)}
-/* Rules section */
 .rules-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .rules-header h2{font-size:13px;font-weight:600}
 .rules-header button{padding:6px 14px;border-radius:6px;background:var(--accent);color:#000;border:none;font-size:11px;font-weight:600;cursor:pointer;transition:opacity .15s}
@@ -73,92 +98,255 @@ body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-se
 .rule-badge.green{background:var(--emerald)}
 .rule-name{font-size:13px;font-weight:500}
 .rule-detail{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px}
-/* History */
+.rule-next{font-size:10px;color:var(--accent);font-family:'JetBrains Mono',monospace;text-align:right;white-space:nowrap;margin-left:12px}
 .history-table{width:100%;border-collapse:collapse}
 .history-table th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--border)}
 .history-table td{padding:10px 12px;font-size:12px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;color:var(--muted)}
 .history-table td:first-child{color:var(--ink)}
 .history-empty{padding:40px;text-align:center;color:var(--dim);font-size:12px}
-/* Modal */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center}
 .modal-overlay.active{display:flex}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:420px;max-width:90vw}
-.modal h3{font-size:14px;font-weight:600;margin-bottom:16px}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:440px;max-width:90vw;max-height:80vh;overflow-y:auto}
+.modal h3{font-size:14px;font-weight:600;margin-bottom:12px}
+.modal p{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px}
+.modal .secret{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;word-break:break-all;color:var(--amber);margin-bottom:12px;user-select:all}
+.modal .secret-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin-bottom:4px}
+.warning{font-size:11px;color:var(--rose);margin-bottom:12px;padding:8px 12px;border:1px solid rgba(251,113,133,.2);border-radius:6px;background:rgba(251,113,133,.05)}
 .form-group{margin-bottom:14px}
 .form-group label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:500}
 .form-group input,.form-group select{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:12px;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color .15s}
 .form-group input:focus,.form-group select:focus{border-color:var(--accent)}
-.form-group select option{background:var(--surface);color:var(--ink)}
-.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 .modal-actions button{padding:8px 16px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:none;transition:opacity .15s}
-.btn-primary{background:var(--accent);color:#000}
-.btn-secondary{background:var(--grid);color:var(--muted)}
-.btn-primary:hover,.btn-secondary:hover{opacity:.8}
-</style>
+.btn-pri{background:var(--accent);color:#000}
+.btn-sec{background:var(--grid);color:var(--muted)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:12px;font-weight:500;z-index:200;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+.toast.success{background:rgba(52,211,153,.15);border:1px solid var(--emerald);color:var(--emerald)}
+.toast.error{background:rgba(239,68,68,.15);border:1px solid #ef4444;color:#ef4444}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.15);border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
 
+.notif-section{border-bottom:1px solid var(--border)}
+.notif-section:last-child{border-bottom:none}
+.notif-section-header{padding:14px 20px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 20px}
+.toggle-info{flex:1}
+.toggle-label{font-size:13px;font-weight:500}
+.toggle-desc{font-size:11px;color:var(--muted);margin-top:1px}
+.toggle-switch{position:relative;width:44px;height:24px;flex-shrink:0;margin-left:16px}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--dim);border-radius:12px;cursor:pointer;transition:background .2s}
+.toggle-slider::before{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s}
+.toggle-switch input:checked+.toggle-slider{background:var(--emerald)}
+.toggle-switch input:checked+.toggle-slider::before{transform:translateX(20px)}
+.log-timeline{padding:0}
+.log-entry{display:flex;align-items:flex-start;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);transition:background .1s}
+.log-entry:last-child{border-bottom:none}
+.log-entry:hover{background:rgba(129,140,248,.03)}
+.log-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.log-dot.success{background:var(--emerald);box-shadow:0 0 6px rgba(52,211,153,.3)}
+.log-dot.failed{background:#ef4444;box-shadow:0 0 6px rgba(239,68,68,.3)}
+.log-dot.info{background:var(--amber);box-shadow:0 0 6px rgba(251,191,36,.3)}
+.log-body{flex:1;min-width:0}
+.log-body .log-time{font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace}
+.log-body .log-rule{font-size:13px;font-weight:500;margin:2px 0}
+.log-body .log-rule .rule-type{font-weight:400;color:var(--dim);font-size:11px}
+.log-body .log-detail{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;word-break:break-all}
+.log-body .log-detail .tx-hash{color:var(--accent);font-size:10px;cursor:pointer}
+.log-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;text-transform:uppercase;margin-top:3px}
+.log-badge.success{background:rgba(52,211,153,.12);color:var(--emerald)}
+.log-badge.failed{background:rgba(239,68,68,.12);color:#ef4444}
+.log-badge.info{background:rgba(251,191,36,.12);color:var(--amber)}
+.msg-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#000;flex-shrink:0}
+.msg-empty{padding:40px;text-align:center;color:var(--dim);font-size:12px}
+.chat-wrapper{max-width:720px;margin:0 auto;width:100%;display:flex;flex-direction:column;height:65vh}
+.chat-header{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.chat-header .chat-partner{font-size:14px;font-weight:600}
+.chat-header .chat-status{font-size:11px;color:var(--muted)}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:6px}
+.chat-bubble{display:flex;align-items:flex-end;gap:8px;max-width:75%;animation:fadeIn .15s ease}
+.chat-bubble.in{flex-direction:row}
+.chat-bubble.out{flex-direction:row-reverse;align-self:flex-end}
+.chat-bubble .bubble-avatar{width:26px;height:26px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#000;flex-shrink:0}
+.chat-bubble .bubble-body{background:var(--surface);border:1px solid var(--border);border-radius:14px;border-bottom-left-radius:4px;padding:10px 14px;position:relative}
+.chat-bubble.out .bubble-body{background:var(--accent);border-color:var(--accent);border-bottom-left-radius:14px;border-bottom-right-radius:4px}
+.chat-bubble .bubble-name{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);margin-bottom:3px}
+.chat-bubble.out .bubble-name{color:rgba(0,0,0,.6)}
+.chat-bubble .bubble-text{font-size:13px;line-height:1.45;word-break:break-word;color:var(--ink)}
+.chat-bubble.out .bubble-text{color:#000}
+.chat-bubble .bubble-time{font-size:9px;color:var(--dim);margin-top:4px;text-align:right}
+.chat-bubble.out .bubble-time{color:rgba(0,0,0,.5)}
+.chat-input-area{border-top:1px solid var(--border);padding:12px 20px;background:var(--surface)}
+.chat-input-area .reply-label{font-size:11px;color:var(--muted);margin-bottom:6px}
+.chat-input-row{display:flex;gap:8px;align-items:center}
+.chat-input-row input{flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:13px;outline:none;font-family:'Inter',system-ui,sans-serif;transition:border-color .15s}
+.chat-input-row input:focus{border-color:var(--accent)}
+.chat-input-row input::placeholder{color:var(--dim)}
+.chat-input-row button{padding:10px 22px;border-radius:10px;border:none;background:var(--accent);color:#000;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.chat-input-row button:hover{opacity:.85}
+.chat-input-row button:disabled{opacity:.5;cursor:default}
+
+/* ─── Skeleton Loading ─── */
+@keyframes shimmer{0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}}
+.skel{background:linear-gradient(90deg,var(--grid) 25%,var(--border) 50%,var(--grid) 75%);background-size:200px 100%;animation:shimmer 1.5s ease-in-out infinite;border-radius:var(--radius-sm)}
+.skel-stat{height:72px;border-radius:var(--radius-md)}
+.skel-card{height:120px;border-radius:var(--radius-md);margin-bottom:16px}
+.skel-row{height:40px;border-radius:var(--radius-sm);margin-bottom:8px}
+
+/* ─── Rule Controls ─── */
+.rule-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.rule-toggle{width:32px;height:18px;border-radius:9px;border:none;cursor:pointer;padding:2px;transition:all .2s;position:relative;background:var(--dim)}
+.rule-toggle.on{background:var(--emerald)}
+.rule-toggle::after{content:'';display:block;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s}
+.rule-toggle.on::after{transform:translateX(14px)}
+.rule-del-btn{padding:3px 8px;border-radius:var(--radius-sm);font-size:10px;font-weight:600;border:1px solid transparent;background:transparent;color:var(--dim);cursor:pointer;transition:all .15s}
+.rule-del-btn:hover{border-color:rgba(251,113,133,.3);color:var(--rose);background:rgba(251,113,133,.08)}
+
+/* ─── Portfolio Summary ─── */
+.portfolio-bar{display:flex;align-items:center;gap:16px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:16px;flex-wrap:wrap}
+.portfolio-total{display:flex;align-items:baseline;gap:8px}
+.portfolio-total .label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}
+.portfolio-total .value{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--ink);letter-spacing:-.02em}
+.portfolio-coins{display:flex;gap:10px;flex-wrap:wrap}
+.portfolio-coin{display:flex;align-items:center;gap:4px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted);padding:2px 8px;border-radius:var(--radius-sm);background:var(--grid)}
+.portfolio-coin .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* ─── Refresh Indicator ─── */
+.refresh-indicator{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace}
+.refresh-dot{width:5px;height:5px;border-radius:50%;background:var(--dim);transition:background .3s}
+.refresh-dot.live{background:var(--emerald);box-shadow:0 0 6px rgba(52,211,153,.4)}
+.refresh-dot.stale{background:#ef4444}
+
+/* ─── Empty State SVG ─── */
+.empty-ill{width:64px;height:64px;margin:0 auto 12px;opacity:.3}
+.empty-ill svg{width:100%;height:100%}
+
+/* ─── Tab Transitions ─── */
+.tab-panel{animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+</style>
 </head>
 <body>
-<div class="layout">
-  <aside class="sidebar">
-    <div class="logo">◈</div>
-    <div class="nav-icon active">◆</div>
-    <div class="nav-icon">⬡</div>
-    <div class="nav-icon" style="margin-top:auto">⚙</div>
-  </aside>
 
+<!-- LANDING -->
+<div id="landing" class="landing">
+  <div class="logo">◈</div>
+  <h1>Your Treasury Agent</h1>
+  <p>Get your own autonomous wallet on Unicity Sphere. Fund it, set rules, and the agent executes them for you.</p>
+  <div class="actions">
+    <button class="btn-primary" id="createBtn" onclick="createAgent()">Create your agent &rarr;</button>
+    <div style="display:flex;align-items:center;gap:8px;color:var(--dim);font-size:11px"><span style="flex:1;height:1px;background:var(--border)"></span>or<span style="flex:1;height:1px;background:var(--border)"></span></div>
+    <div class="load-row">
+      <input class="input" id="tokenInput" placeholder="Paste your recovery token" autocomplete="off">
+      <button class="btn-secondary" onclick="loadAgent()">Recover</button>
+    </div>
+    <div class="hint">Lost access? Enter your recovery token to re-open your agent.</div>
+    <details>
+      <summary>Recover with seed phrase instead</summary>
+      <div class="load-row" style="margin-top:8px">
+        <input class="input" id="seedInput" placeholder="Enter your 12-word seed phrase" autocomplete="off" style="font-size:10px">
+        <button class="btn-secondary" onclick="recoverWithSeed()">Restore</button>
+      </div>
+      <div class="hint">Import an existing Sphere wallet using its seed phrase.</div>
+    </details>
+  </div>
+</div>
+
+<!-- RECOVERY MODAL -->
+<div class="modal-overlay" id="recoveryModal">
+  <div class="modal">
+    <h3>&#128273; Save your recovery key</h3>
+    <p>This is the only way to recover your agent if you log out or switch devices. <strong>Save it now.</strong></p>
+    <div class="secret-label">Session Token (for dashboard login)</div>
+    <div class="secret" id="recoveryToken">&#8212;</div>
+    <div class="secret-label">Wallet Seed Phrase (for wallet import)</div>
+    <div class="secret" id="recoveryMnemonic">&#8212;</div>
+    <div class="warning">&#9888; If you lose these, your agent and its funds are unrecoverable.</div>
+    <div class="modal-actions">
+      <button class="btn-pri" onclick="copyRecovery()">&#x29c9; Copy both</button>
+      <button class="btn-sec" onclick="closeRecovery()">I saved it</button>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="layout">
+  <aside class="sidebar" id="sidebar">
+    <a href="/" style="text-decoration:none"><div class="logo">&#9674;</div></a>
+    <div class="nav-item active" onclick="switchTab('dashboard');closeMobileNav()">
+      <span class="nav-icon">&#9670;</span>
+      <span class="nav-label">Dashboard</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('logs');closeMobileNav()">
+      <span class="nav-icon">&#128203;</span>
+      <span class="nav-label">Execution Log</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('messages');closeMobileNav()">
+      <span class="nav-icon"><span style="position:relative">&#9993;<span id="msgUnreadCount" style="display:none;position:absolute;top:-8px;right:-10px;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:9px;font-weight:600;line-height:14px;text-align:center;padding:0 3px"></span></span></span>
+      <span class="nav-label">Messages</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('notifications');closeMobileNav()">
+      <span class="nav-icon">&#128276;</span>
+      <span class="nav-label">Notifications</span>
+    </div>
+    <div class="nav-item spacer"></div>
+    <div class="nav-item" onclick="toggleTheme();closeMobileNav()" id="themeIcon">
+      <span class="nav-icon">&#9790;</span>
+      <span class="nav-label">Dark / Light</span>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileNav()"></div>
+  <button class="mobile-hamburger" id="mobileHamburger" onclick="toggleMobileNav()">&#9776;</button>
   <main class="main">
+    <div class="tab-panel" id="tab-dashboard">
     <div class="header">
       <div class="header-left">
-        <a href="http://localhost:8080/dashboard.html" style="text-decoration:none;color:inherit"><h1>Treasury Agent</h1></a>
-        <p>Autonomous wallet management on Unicity Sphere</p>
+        <h1>Your Treasury Agent</h1>
+        <p id="agentSub">Autonomous wallet on Unicity Sphere</p>
       </div>
       <div class="header-right">
-        <script src="/sdk-browser.js"></script>
-<button id="connectWallet" class="connect-btn" onclick="handleConnect()">
-          <span id="connectDot" class="connect-dot"></span>
-          <span id="connectText">Connect wallet</span>
-        </button>
-        <div class="badge">testnet2</div>
+        <div class="badge"><span class="status-dot"></span>testnet2</div>
+        <button class="copy-btn" onclick="showRecovery()">&#128273; Keys</button>
+        <button class="logout-btn" onclick="logout()">&#10005; Logout</button>
       </div>
     </div>
 
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-label">Balance</div>
-        <div class="stat-value cyan" id="balanceDisplay">0</div>
-        <div class="stat-sub">UCT</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Sent</div>
-        <div class="stat-value emerald" id="sentDisplay">0</div>
-        <div class="stat-sub">UCT total</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Received</div>
-        <div class="stat-value violet" id="receivedDisplay">0</div>
-        <div class="stat-sub">UCT total</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Rules</div>
-        <div class="stat-value amber" id="rulesCount">0</div>
-        <div class="stat-sub">active</div>
+    <div class="agent-bar">
+      <span class="label">Your Agent</span>
+      <span class="addr" id="agentAddr">&#8212;</span>
+      <button class="copy-btn" onclick="copyAddr()">&#x29c9; Copy</button>
+      <button class="copy-btn" onclick="fundAgent()">&#8853; Fund</button>
+      <button class="copy-btn" onclick="openTipModal()" style="color:var(--rose)">&#128151; Tip</button>
+      <span style="flex:1"></span>
+      <div class="nametag-row" id="nametagSection">
+        <input class="input" id="nametagInput" placeholder="@yourname" style="width:140px">
+        <button class="copy-btn" id="nametagBtn" onclick="setNametag()">Claim @name</button>
       </div>
     </div>
+
+    <div class="portfolio-bar" id="portfolioBar" style="display:none">
+      <div class="portfolio-total">
+        <span class="label">Portfolio</span>
+        <span class="value" id="portfolioTotal">—</span>
+      </div>
+      <div class="portfolio-coins" id="portfolioCoins"></div>
+      <span style="flex:1"></span>
+      <div class="refresh-indicator">
+        <span class="refresh-dot" id="refreshDot"></span>
+        <span id="refreshLabel">auto</span>
+      </div>
+    </div>
+
+    <div class="stats" id="balanceStats"></div>
+    <div style="display:none"><span id="balanceDisplay"></span><span id="rulesCount"></span></div>
 
     <div class="agent-grid">
       <div class="agent-card">
-        <div class="card-title">◈ Agent Wallet</div>
-        <div class="balance-large" id="walletBalance">0</div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:8px">UCT</div>
-        <div class="address" id="walletAddress">DIRECT://0000598e27c789...</div>
-        <button class="copy-btn" onclick="copyAddress()">⧉ Copy address</button>
-      </div>
-
-      <div class="agent-card">
-        <div class="card-title">■ Agent Status</div>
+        <div class="card-title">&#9632; Status</div>
         <div class="metric-row">
           <span class="metric-name">Status</span>
-          <span class="metric-val green">● Active</span>
+          <span class="metric-val green">&#9679; Active</span>
         </div>
         <div class="metric-row">
           <span class="metric-name">Network</span>
@@ -166,199 +354,935 @@ body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-se
         </div>
         <div class="metric-row">
           <span class="metric-name">Last check</span>
-          <span class="metric-val" id="lastCheck">—</span>
+          <span class="metric-val" id="lastCheck">&#8212;</span>
         </div>
         <div class="metric-row">
           <span class="metric-name">Cycle</span>
-          <span class="metric-val">Every hour</span>
+          <span class="metric-val">Every 10 min</span>
         </div>
       </div>
     </div>
 
     <div class="rules-header">
-      <h2>■ Rules</h2>
+      <h2>&#9632; Rules</h2>
       <button onclick="openModal()">+ New rule</button>
     </div>
     <div id="rulesContainer">
       <div class="empty-rules">
-        <div style="font-size:28px;margin-bottom:12px;color:var(--dim)">◇</div>
+        <div style="font-size:28px;margin-bottom:12px;color:var(--dim)">&#9670;</div>
         <p>No rules configured</p>
-        <div class="hint">Create a recurring payment or threshold alert to automate your treasury</div>
+        <div class="hint">Create a recurring payment or threshold alert</div>
       </div>
     </div>
 
     <div style="margin-top:28px">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px">■ Activity</div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px">&#9632; Activity</div>
       <div id="historyContainer">
         <div class="history-empty">No transactions yet</div>
       </div>
     </div>
+  </div>
+
+  <!-- LOGS TAB -->
+  <div class="tab-panel" id="tab-logs" style="display:none">
+    <div class="header">
+      <div class="header-left">
+        <h1>Execution Log</h1>
+        <p>Timestamped record of every rule the agent fires</p>
+      </div>
+      <div class="header-right">
+        <button class="copy-btn" onclick="loadLogs()">&#8635; Refresh</button>
+      </div>
+    </div>
+    <div id="logsContainer" class="agent-card" style="padding:0;overflow:hidden">
+      <div class="history-empty">No execution logs yet. Logs appear when rules fire.</div>
+    </div>
+  </div>
+
+  <!-- MESSAGES TAB -->
+  <div class="tab-panel" id="tab-messages" style="display:none">
+    <div class="header">
+      <div class="header-left">
+        <h1>Messages</h1>
+        <p id="msgSubtitle">Inbox for forwarded DMs</p>
+      </div>
+      <div class="header-right">
+        <button class="copy-btn" onclick="loadMessages()">&#8635; Refresh</button>
+      </div>
+    </div>
+    <div id="chatContainer" class="chat-wrapper" style="display:none">
+      <div class="chat-header">
+        <div class="msg-avatar" id="chatPartnerAvatar" style="width:32px;height:32px;font-size:13px">ZU</div>
+        <div>
+          <div class="chat-partner" id="chatPartnerName">@zubbycrypt</div>
+          <div class="chat-status" id="chatPartnerStatus">online</div>
+        </div>
+      </div>
+      <div class="chat-msgs" id="chatMessages"></div>
+      <div class="chat-input-area">
+        <div class="reply-label" id="replyTarget">Replying to <strong>@zubbycrypt</strong></div>
+        <div class="chat-input-row">
+          <input id="chatInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendReply()">
+          <button id="sendBtn" onclick="sendReply()">Send</button>
+        </div>
+      </div>
+    </div>
+    <div id="chatEmpty" class="agent-card" style="padding:40px;text-align:center">
+      <div class="msg-empty">No messages yet. DMs sent to the agent will appear here.</div>
+    </div>
+  </div>
+
+  <!-- NOTIFICATIONS TAB -->
+  <div class="tab-panel" id="tab-notifications" style="display:none">
+    <div class="header">
+      <div class="header-left">
+        <h1>Notification Preferences</h1>
+        <p>Control which events the agent pushes to you</p>
+      </div>
+      <div class="header-right">
+        <button class="copy-btn" onclick="loadNotifPrefs()">&#8635; Refresh</button>
+      </div>
+    </div>
+    <div class="agent-card" style="padding:0">
+      <div class="notif-section">
+        <div class="notif-section-header">&#128227; Payment Events</div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-label">&#9989; Rule Execution</div>
+            <div class="toggle-desc">When a rule successfully sends a payment</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="pref-ruleExecution" onchange="saveNotifPrefs()"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-label">&#128230; Deposit Received</div>
+            <div class="toggle-desc">When incoming funds arrive in your wallet</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="pref-deposit" onchange="saveNotifPrefs()"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="notif-section">
+        <div class="notif-section-header">&#9888;&#65039; Alerts</div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-label">&#128308; Errors &amp; Failures</div>
+            <div class="toggle-desc">When a payment fails or an error occurs</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="pref-error" onchange="saveNotifPrefs()"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-label">&#128200; Threshold Alerts</div>
+            <div class="toggle-desc">When a balance drops below a configured threshold</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="pref-threshold" onchange="saveNotifPrefs()"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="notif-section">
+        <div class="notif-section-header">&#128231; Delivery Channels</div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-label">&#128172; Sphere DM</div>
+            <div class="toggle-desc">Send notifications as Sphere direct messages</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="pref-dmEnabled" onchange="toggleDmField()"><span class="toggle-slider"></span></label>
+        </div>
+        <div id="dmRecipientRow" style="display:none;padding:0 20px 12px">
+          <div class="toggle-desc" style="margin-bottom:4px">Your Sphere @nametag or address</div>
+          <div style="display:flex;gap:8px">
+            <input class="input" id="pref-dmRecipient" placeholder="@yourname" onchange="saveNotifPrefs()" style="font-size:11px;flex:1">
+          </div>
+        </div>
+        <div style="padding:0 20px 16px">
+          <div class="toggle-desc" style="margin-bottom:4px">Webhook URL (Telegram bot, Discord, Slack, etc.)</div>
+          <div style="display:flex;gap:8px">
+            <input class="input" id="pref-webhookUrl" placeholder="https://hooks.example.com/notify" onchange="saveNotifPrefs()" style="font-size:11px;flex:1">
+            <button class="copy-btn" onclick="document.getElementById('pref-webhookUrl').value='';saveNotifPrefs()" style="color:var(--rose)">Clear</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   </main>
 </div>
 
+<!-- LOG DETAIL MODAL -->
+<div class="modal-overlay" id="logModal">
+  <div class="modal" style="width:480px">
+    <h3 id="logModal-title">Execution Detail</h3>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px">
+      <span id="logModal-dir" style="font-size:13px;font-weight:600">Info</span>
+      <span id="logModal-status" class="log-badge info">INFO</span>
+    </div>
+    <div class="metric-row"><span class="metric-name">Type</span><span class="metric-val" id="logModal-type">—</span></div>
+    <div class="metric-row"><span class="metric-name">Amount</span><span class="metric-val" id="logModal-amount">—</span></div>
+    <div class="metric-row"><span class="metric-name" id="logModal-cp-label">Recipient</span><span class="metric-val" id="logModal-cp">—</span></div>
+    <div class="metric-row"><span class="metric-name">Time</span><span class="metric-val" id="logModal-time">—</span></div>
+    <div class="metric-row" style="border-bottom:none"><span class="metric-name">Tx Hash</span><span class="metric-val" id="logModal-tx" style="font-size:10px;word-break:break-all">—</span></div>
+    <div style="text-align:right;margin-top:4px;margin-bottom:12px"><button class="copy-btn" id="logModal-tx-copy" style="display:none">&#x29c9; Copy tx hash</button></div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;word-break:break-word" id="logModal-detail">—</div>
+    <div class="modal-actions"><button class="btn-sec" onclick="closeLogModal()">Close</button></div>
+  </div>
+</div>
+
+<!-- RULE MODAL -->
 <div class="modal-overlay" id="ruleModal">
   <div class="modal">
     <h3>Create Rule</h3>
     <div class="form-group">
       <label>Type</label>
-      <select id="ruleType">
+      <select id="ruleType" onchange="toggleRuleType()">
         <option value="recurring">Recurring payment</option>
+        <option value="dca">DCA / Auto-invest</option>
+        <option value="sweep">Sweep excess</option>
+        <option value="multi-pay">Multi-pay (up to 10)</option>
         <option value="threshold">Threshold alert</option>
       </select>
     </div>
     <div class="form-group">
+      <label>Coin</label>
+      <select id="ruleCoin">
+        <option value="UCT">UCT</option>
+        <option value="BTC">BTC</option>
+        <option value="ETH">ETH</option>
+        <option value="SOL">SOL</option>
+        <option value="USDT">USDT</option>
+        <option value="USDC">USDC</option>
+      </select>
+    </div>
+    <div class="form-group">
       <label>Name</label>
-      <input id="ruleName" placeholder="e.g. Weekly moderator pay">
+      <input id="ruleName" placeholder="e.g. Weekly pay">
     </div>
-    <div class="form-group" id="recurringFields">
-      <label>Cron (min hour)</label>
-      <input id="ruleCron" placeholder="0 9 * * 1 (every Monday 9am)">
+    <div id="recurringFields">
+      <div class="form-group">
+        <label>Cron (min hour)</label>
+        <input id="ruleCron" placeholder="e.g. 0 9 * * *">
+        <div style="font-size:10px;color:var(--dim);margin-top:2px">Try: <strong>daily</strong>, <strong>hourly</strong>, <strong>30min</strong>, <strong>weekly</strong></div>
+      </div>
     </div>
-    <div class="form-group" id="recurringFields2">
-      <label>Recipient @nametag</label>
-      <input id="ruleRecipient" placeholder="@someone">
+    <div id="singlePayFields">
+      <div class="form-group">
+        <label>Recipient @nametag</label>
+        <input id="ruleRecipient" placeholder="@someone">
+      </div>
+      <div class="form-group">
+        <label>Amount</label>
+        <input id="ruleAmount" placeholder="e.g. 3.5">
+      </div>
     </div>
-    <div class="form-group" id="recurringFields3">
-      <label>Amount (UCT)</label>
-      <input id="ruleAmount" placeholder="1000000">
+    <div id="multiPayFields" style="display:none">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Recipients (max 10)</div>
+      <div id="recipientRows">
+        <div class="form-group" style="display:flex;gap:8px;align-items:center">
+          <input class="rcp-name" placeholder="@user" style="flex:1">
+          <input class="rcp-amt" placeholder="amount" style="width:100px">
+          <button class="copy-btn" onclick="this.parentElement.remove()" style="color:var(--rose)">&#10005;</button>
+        </div>
+      </div>
+      <button class="copy-btn" onclick="addRecipientRow()" style="margin-bottom:12px">+ Add recipient</button>
     </div>
-    <div class="form-group" id="thresholdFields" style="display:none">
-      <label>Min balance (UCT)</label>
-      <input id="ruleMinBalance" placeholder="50000">
+    <div class="form-group" id="threshFields" style="display:none">
+      <label>Min balance</label>
+      <input id="ruleMinBalance" placeholder="e.g. 10">
     </div>
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
-      <button class="btn-primary" onclick="createRule()">Create</button>
+      <button class="btn-sec" onclick="closeModal()">Cancel</button>
+      <button class="btn-pri" onclick="createRule()">Create</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- TIP MODAL -->
+<div class="modal-overlay" id="tipModal">
+  <div class="modal">
+    <h3>&#128151; Send Tip</h3>
+    <div class="form-group">
+      <label>Recipient @nametag</label>
+      <input id="tipRecipient" placeholder="@username">
+    </div>
+    <div class="form-group">
+      <label>Coin</label>
+      <select id="tipCoin">
+        <option value="UCT">UCT</option>
+        <option value="BTC">BTC</option>
+        <option value="ETH">ETH</option>
+        <option value="SOL">SOL</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Amount</label>
+      <input id="tipAmount" placeholder="e.g. 1.5">
+    </div>
+    <div class="form-group">
+      <label>Message (optional)</label>
+      <input id="tipMessage" placeholder="Great work!">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeTipModal()">Cancel</button>
+      <button class="btn-pri" id="tipSendBtn" onclick="sendTip()">Send Tip</button>
     </div>
   </div>
 </div>
 
 <script>
-const API = 'http://localhost:3001';
+const SESSION_KEY = 'treasury_agent_session';
+let _mnemonic = '';
 
-document.getElementById('ruleType').onchange = function() {
-  const isThreshold = this.value === 'threshold';
-  document.getElementById('recurringFields').style.display = isThreshold ? 'none' : '';
-  document.getElementById('recurringFields2').style.display = isThreshold ? 'none' : '';
-  document.getElementById('recurringFields3').style.display = isThreshold ? 'none' : '';
-  document.getElementById('thresholdFields').style.display = isThreshold ? '' : 'none';
-};
+function api(path, opts = {}) {
+  const token = localStorage.getItem(SESSION_KEY);
+  return fetch(location.origin + path, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Session-Token': token || '',
+      ...(opts.headers || {}),
+    },
+  });
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ─── Token decimals ───
+const DECIMALS = { UCT:18, BTC:8, ETH:18, SOL:9, USDT:6, USDC:6, USDU:6, EURU:6, ALPHT:8, DDSC:18 };
+function fmt(amt, sym) {
+  if (amt === '0' || !amt) return '0';
+  const d = DECIMALS[sym] || 18;
+  const s = amt.padStart(d + 1, '0');
+  const i = s.slice(0, s.length - d) || '0';
+  const f = s.slice(s.length - d).replace(/0+$/, '');
+  return f ? i + '.' + f : i;
+}
+
+// ─── Cron / Next-run helpers ───
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function getNextCronRun(cronStr) {
+  if (!cronStr) return null;
+  const parts = cronStr.trim().split(/\s+/);
+  if (parts.length < 5) return null;
+  const [minStr, hourStr, domStr, monStr, dowStr] = parts;
+  const min = minStr === '*' ? null : parseInt(minStr);
+  const hour = hourStr === '*' ? null : parseInt(hourStr);
+  const dom = domStr === '*' ? null : parseInt(domStr);
+  const mon = monStr === '*' ? null : parseInt(monStr);
+  const dow = dowStr === '*' ? null : parseInt(dowStr);
+  const now = new Date();
+  // Search up to 60 days ahead
+  for (let d = 0; d <= 60; d++) {
+    const candidate = new Date(now);
+    candidate.setDate(candidate.getDate() + d);
+    candidate.setSeconds(0, 0);
+    if (dom !== null && candidate.getDate() !== dom) continue;
+    if (mon !== null && (candidate.getMonth() + 1) !== mon) continue;
+    if (dow !== null && candidate.getDay() !== dow) continue;
+    if (d === 0) {
+      // Today — check if the time hasn't passed yet
+      if (hour !== null && candidate.getHours() > hour) continue;
+      if (hour !== null && candidate.getHours() === hour && min !== null && candidate.getMinutes() >= min) continue;
+    }
+    if (hour !== null) candidate.setHours(hour);
+    if (min !== null) candidate.setMinutes(min);
+    if (candidate > now) return candidate;
+  }
+  return null;
+}
+function formatNextRun(next) {
+  if (!next) return '—';
+  const now = new Date();
+  const diffMs = next.getTime() - now.getTime();
+  if (diffMs <= 0) return 'Now';
+  const diffDays = Math.floor(diffMs / 86400000);
+  const diffHrs = Math.floor((diffMs % 86400000) / 3600000);
+  const diffMin = Math.floor((diffMs % 3600000) / 60000);
+  if (diffDays > 0) return diffDays + 'd ' + diffHrs + 'h remaining';
+  if (diffHrs > 0) return diffHrs + 'h ' + diffMin + 'm remaining';
+  return diffMin + 'm remaining';
+}
+function getCronLabel(cronStr) {
+  if (!cronStr) return '';
+  const parts = cronStr.trim().split(/\s+/);
+  if (parts.length < 5) return '';
+  const min = parseInt(parts[0]); const hour = parseInt(parts[1]);
+  const dom = parts[2]; const mon = parts[3]; const dow = parts[4];
+  if (dom === '*' && mon === '*' && dow === '*') return 'Daily at ' + String(hour).padStart(2,'0') + ':' + String(min).padStart(2,'0');
+  if (dom !== '*' && mon === '*' && dow === '*') return 'Monthly on day ' + dom;
+  if (dom === '*' && mon === '*' && dow !== '*') return DAYS[parseInt(dow)] + 's at ' + String(hour).padStart(2,'0') + ':' + String(min).padStart(2,'0');
+  return cronStr;
+}
+
+// ─── Countdown refresh ───
+let countdownTimer = null;
+function startCountdown() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    document.querySelectorAll('.next-run-countdown').forEach(el => {
+      const cron = el.getAttribute('data-cron');
+      if (cron) {
+        const next = getNextCronRun(cron);
+        el.textContent = formatNextRun(next);
+      }
+    });
+  }, 60000); // update every minute
+}
+// On page load, start the countdown
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startCountdown);
+else startCountdown();
+
+// ─── Landing ───
+
+async function createAgent() {
+  const btn = document.getElementById('createBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Creating...';
+  try {
+    const res = await api('/api/agent/create', { method: 'POST' }).then(r => r.json());
+    if (res.token) {
+      localStorage.setItem(SESSION_KEY, res.token);
+      _mnemonic = res.mnemonic || '';
+      showRecoveryKeys(res.token, _mnemonic);
+      enterDashboard(res);
+    } else {
+      showToast(res.error || 'Failed to create agent', 'error');
+    }
+  } catch (e) {
+    showToast('Network error: ' + e.message, 'error');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Create your agent \u2192';
+}
+
+async function loadAgent() {
+  const token = document.getElementById('tokenInput').value.trim();
+  if (!token) return showToast('Enter your recovery token', 'error');
+  localStorage.setItem(SESSION_KEY, token);
+  try {
+    const res = await api('/api/agent/load', { method: 'POST' }).then(r => r.json());
+    if (res.address) { if (res.mnemonic) _mnemonic = res.mnemonic; showToast('Agent recovered'); enterDashboard(res); }
+    else { localStorage.removeItem(SESSION_KEY); showToast('Token not found', 'error'); }
+  } catch (e) { localStorage.removeItem(SESSION_KEY); showToast('Network error: ' + e.message, 'error'); }
+}
+
+async function recoverWithSeed() {
+  const seed = document.getElementById('seedInput').value.trim();
+  if (!seed || seed.split(/\s+/).length < 6) return showToast('Enter a valid seed phrase (12+ words)', 'error');
+  const btn = document.querySelector('#seedInput + button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Restoring...'; }
+  try {
+    const res = await fetch(location.origin + '/api/agent/recover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mnemonic: seed }),
+    }).then(r => r.json());
+    if (res.token) {
+      localStorage.setItem(SESSION_KEY, res.token);
+      showToast(res.restored ? 'Wallet restored!' : 'Wallet imported!');
+      enterDashboard(res);
+    } else { showToast(res.error || 'Failed to import wallet', 'error'); }
+  } catch (e) { showToast('Network error: ' + e.message, 'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = 'Restore'; }
+}
+
+function logout() {
+  localStorage.removeItem(SESSION_KEY);
+  document.getElementById('dashboard').classList.remove('active');
+  document.getElementById('landing').style.display = '';
+}
+
+// ─── Recovery ───
+
+function showRecoveryKeys(token, mnemonic) {
+  document.getElementById('recoveryToken').textContent = token;
+  document.getElementById('recoveryMnemonic').textContent = mnemonic || '(not available)';
+  document.getElementById('recoveryModal').classList.add('active');
+}
+function closeRecovery() { document.getElementById('recoveryModal').classList.remove('active'); }
+function showRecovery() {
+  document.getElementById('recoveryToken').textContent = localStorage.getItem(SESSION_KEY) || '\u2014';
+  document.getElementById('recoveryMnemonic').textContent = _mnemonic || '(seed not cached)';
+  document.getElementById('recoveryModal').classList.add('active');
+}
+function copyRecovery() {
+  const t = document.getElementById('recoveryToken').textContent;
+  const m = document.getElementById('recoveryMnemonic').textContent;
+  navigator.clipboard.writeText('Session Token: ' + t + '\nSeed Phrase: ' + m).then(() => showToast('Recovery keys copied'));
+}
+
+// ─── Dashboard ───
+
+function enterDashboard(data) {
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('dashboard').classList.add('active');
+  if (data.mnemonic) _mnemonic = data.mnemonic;
+  const display = data.nametag ? '@' + data.nametag : data.address || '\u2014';
+  document.getElementById('agentAddr').textContent = display;
+  document.getElementById('agentSub').textContent = data.nametag
+    ? '@' + data.nametag + ' \u00b7 created ' + new Date(data.createdAt).toLocaleDateString()
+    : 'Created ' + new Date(data.createdAt).toLocaleDateString();
+  document.getElementById('nametagSection').style.display = data.nametag ? 'none' : 'flex';
+  if (data.nametag) document.getElementById('nametagInput').value = '';
+  loadData();
+}
 
 async function loadData() {
+  showSkeleton();
   try {
-    const bal = await fetch(API + '/api/balance').then(r => r.json());
-    document.getElementById('balanceDisplay').textContent = bal.balance || '0';
-    document.getElementById('walletBalance').textContent = bal.balance || '0';
-    document.getElementById('lastCheck').textContent = bal.lastChecked || '—';
-
-    const rules = await fetch(API + '/api/rules').then(r => r.json());
-    document.getElementById('rulesCount').textContent = (rules.rules || []).length;
-
-    const container = document.getElementById('rulesContainer');
-    if (!rules.rules || rules.rules.length === 0) {
-      container.innerHTML = `<div class="empty-rules"><p>No rules configured</p><div class="hint">Create a recurring payment or threshold alert</div></div>`;
+    const bal = await api('/api/balance').then(r => r.json());
+    document.getElementById('lastCheck').textContent = bal.lastChecked
+      ? new Date(bal.lastChecked).toLocaleString() : '\u2014';
+    let bals = bal.balances || {};
+    if (Object.keys(bals).length === 0) {
+      const ref = await api('/api/refresh', { method: 'POST' }).then(r => r.json()).catch(() => ({}));
+      bals = ref.balances || {};
+    }
+    const colors = { UCT:'var(--cyan)', BTC:'#f7931a', ETH:'#8b8cf7', SOL:'#9945ff',
+      USDT:'#26a17b', USDC:'#2775ca', USDU:'var(--emerald)', EURU:'#0052b4', ALPHT:'#f472b6', DDSC:'#fb923c' };
+    const entries = Object.entries(bals);
+    const statsEl = document.getElementById('balanceStats');
+    if (entries.length === 0) {
+      document.getElementById('portfolioBar').style.display = 'none';
+      statsEl.innerHTML = '<div class="stat" style="grid-column:span 4;text-align:center;color:var(--dim);font-size:12px">Fund your wallet to see balances</div>';
     } else {
-      container.innerHTML = rules.rules.map(r => `
-        <div class="rule-item">
-          <div class="rule-left">
-            <span class="rule-badge green"></span>
-            <div>
-              <div class="rule-name">${r.name}</div>
-              <div class="rule-detail">${r.type}${r.cron ? ' · ' + r.cron : ''}${r.recipient ? ' → ' + r.recipient : ''}${r.amount ? ' · ' + r.amount + ' UCT' : ''}</div>
-            </div>
-          </div>
-        </div>
-      `).join('');
+      // Portfolio summary
+      const totalVal = entries.reduce((sum, [sym, amt]) => {
+        const f = parseFloat(fmt(amt, sym));
+        return sum + (isNaN(f) ? 0 : f);
+      }, 0);
+      document.getElementById('portfolioTotal').textContent = totalVal.toFixed(2) + ' total';
+      document.getElementById('portfolioCoins').innerHTML = entries.map(([sym]) =>
+        '<span class="portfolio-coin"><span class="dot" style="background:' + (colors[sym] || 'var(--accent)') + '"></span>' + sym + '</span>'
+      ).join('');
+      document.getElementById('portfolioBar').style.display = 'flex';
+      // Stats grid
+      statsEl.innerHTML = entries.map(([sym, amt]) =>
+        '<div class="stat"><div class="stat-label">' + sym + '</div><div class="stat-value" style="color:' + (colors[sym] || 'var(--accent)') + ';font-size:16px">' + fmt(amt, sym) + '</div><div class="stat-sub">' + (sym === 'UCT' ? 'native' : '') + '</div></div>'
+      ).join('');
     }
 
-    const hist = await fetch(API + '/api/history').then(r => r.json());
+    const rules = await api('/api/rules').then(r => r.json());
+    const rc = document.getElementById('rulesContainer');
+    if (!rules.rules || rules.rules.length === 0) {
+      rc.innerHTML = '<div class="empty-rules"><div class="empty-ill"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="8" width="36" height="32" rx="4"/><line x1="14" y1="18" x2="34" y2="18"/><line x1="14" y1="26" x2="30" y2="26"/></svg></div><p>No rules configured</p><div class="hint">Create a recurring payment or threshold alert</div></div>';
+    } else {
+      rc.innerHTML = rules.rules.map((r, idx) => {
+        const labels = { recurring:'Pay', dca:'Invest', sweep:'Sweep', 'multi-pay':'MultiPay', threshold:'Alert' };
+        let d = (labels[r.type] || r.type) + ' ' + (r.coinSymbol || 'UCT');
+        if (r.cron) d += ' \u00b7 ' + getCronLabel(r.cron);
+        if (r.type === 'multi-pay' && r.recipients) {
+          let rcps = []; try { rcps = JSON.parse(r.recipients); } catch {}
+          d += ' \u2192 ' + rcps.map(p => p.r + ':' + p.a).join(', ');
+        } else {
+          if (r.recipient) d += ' \u2192 ' + r.recipient;
+          if (r.amount) d += ' \u00b7 ' + fmt(r.amount, r.coinSymbol || 'UCT') + ' ' + (r.coinSymbol || 'UCT');
+        }
+        const nextRun = r.cron ? formatNextRun(getNextCronRun(r.cron)) : (r.type === 'threshold' ? '\u26a0\ufe0f Always' : '\u2014');
+        const active = r.active !== 'false';
+        return '<div class="rule-item"><div class="rule-left"><span class="rule-badge ' + (active ? 'green' : '') + '" style="' + (!active ? 'background:var(--dim)' : '') + '"></span><div><div class="rule-name">' + r.name + '</div><div class="rule-detail">' + d + '</div></div></div><div style="display:flex;align-items:center;gap:12px"><div class="rule-next"><span class="next-run-countdown" data-cron="' + (r.cron || '') + '">' + nextRun + '</span></div><div class="rule-actions"><button class="rule-toggle' + (active ? ' on' : '') + '" onclick="toggleRule(' + idx + ')" title="' + (active ? 'Pause' : 'Activate') + '"></button><button class="rule-del-btn" onclick="deleteRule(' + idx + ')" title="Delete">\u2715</button></div></div></div>';
+      }).join('');
+    }
+
+    const hist = await api('/api/history').then(r => r.json());
     const txs = hist.transactions || [];
     const hc = document.getElementById('historyContainer');
     if (txs.length === 0) {
-      hc.innerHTML = '<div class="history-empty">No transactions yet</div>';
+      hc.innerHTML = '<div class="history-empty"><div class="empty-ill"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="24" cy="24" r="16"/><polyline points="16,24 22,30 32,18"/></svg></div>No transactions yet</div>';
     } else {
-      hc.innerHTML = `<table class="history-table">
-        <tr><th>Type</th><th>Amount</th><th>Status</th><th>Time</th></tr>
-        ${txs.slice(-20).map(t => `<tr><td>${t.type}</td><td>${t.amount || '—'}</td><td>${t.status || '—'}</td><td>${new Date(t.timestamp).toLocaleString()}</td></tr>`).join('')}
-      </table>`;
+      hc.innerHTML = '<table class="history-table"><tr><th>Type</th><th>Amount</th><th>To/From</th><th>Tx</th><th>Time</th></tr>' +
+        txs.slice(-30).reverse().map(t => {
+          let detailText = t.detail || t.type;
+          const coin = t.coinSymbol || detailText.match(/(?:\d+(?:\.\d+)?)\s+([A-Z]{2,10})/)?.[1] || detailText.match(/\(([A-Z]{2,10})\)/)?.[1] || '';
+          const amount = t.amount && t.amount !== '0' ? fmt(t.amount, coin || 'UCT') + ' ' + (coin || '') : '\u2014';
+          const cp = t.counterparty || detailText.match(/(?:to|from)\s+(@?\w+)/i)?.[1] || '';
+          const tx = t.txHash || detailText.match(/tx:(\w+)/)?.[1] || '';
+          const txHtml = tx
+            ? '<span class="tx-hash" onclick="navigator.clipboard.writeText(\'' + tx + '\').then(()=>showToast(\'Tx hash copied\'))" style="color:var(--accent);font-size:10px;cursor:pointer">' + tx.slice(0, 10) + '&#8230;</span>'
+            : '\u2014';
+          let clean = detailText.replace(/ from @?\S+/gi, '').replace(/ to @?\S+/gi, '').replace(/ tx:\w+/gi, '').replace(/\s+\([A-Z]{2,10}\)$/, '');
+          if (coin) clean = clean.replace(new RegExp(' ' + coin + '$'), '');
+          // Direction indicator
+          const isDeposit = t.type === 'receive' || detailText.toLowerCase().includes('received') || detailText.toLowerCase().includes('deposit');
+          return '<tr><td>' + (isDeposit ? '\u2b06 ' : '\u2b07 ') + clean + '</td><td>' + amount + '</td><td>' + (cp || '\u2014') + '</td><td>' + txHtml + '</td><td>' + new Date(t.timestamp).toLocaleString() + '</td></tr>';
+        }).join('') + '</table>';
     }
-  } catch(e) {
-    console.log('API not reachable:', e);
-  }
+    // Start auto-refresh on first load
+    if (!_refreshTimer) startAutoRefresh();
+  } catch(e) { console.log('load err:', e); }
 }
 
-function openModal() { document.getElementById('ruleModal').classList.add('active'); }
+// ─── Rule Toggle & Delete ───
+async function toggleRule(idx) {
+  try {
+    const rules = await api('/api/rules').then(r => r.json());
+    const rule = rules.rules?.[idx];
+    if (!rule) return showToast('Rule not found', 'error');
+    const newActive = rule.active === 'false' ? 'true' : 'false';
+    await api('/api/rules/' + rule.id, {
+      method: 'PATCH',
+      body: JSON.stringify({ active: newActive }),
+    });
+    showToast(rule.name + ' ' + (newActive === 'true' ? 'activated' : 'paused'));
+    loadData();
+  } catch(e) { showToast('Failed to toggle rule', 'error'); }
+}
+async function deleteRule(idx) {
+  if (!confirm('Delete this rule? This cannot be undone.')) return;
+  try {
+    const rules = await api('/api/rules').then(r => r.json());
+    const rule = rules.rules?.[idx];
+    if (!rule) return showToast('Rule not found', 'error');
+    await api('/api/rules/' + rule.id, { method: 'DELETE' });
+    showToast('Rule deleted');
+    loadData();
+  } catch(e) { showToast('Failed to delete rule', 'error'); }
+}
+
+// ─── Nametag ───
+
+async function setNametag() {
+  const name = document.getElementById('nametagInput').value.trim();
+  if (!name) return showToast('Enter a nametag', 'error');
+  const btn = document.getElementById('nametagBtn');
+  btn.disabled = true; btn.textContent = 'Claiming...';
+  try {
+    const res = await api('/api/agent/nametag', { method: 'POST', body: JSON.stringify({ nametag: name }) }).then(r => r.json());
+    if (res.nametag) {
+      document.getElementById('agentAddr').textContent = '@' + res.nametag;
+      document.getElementById('nametagSection').style.display = 'none';
+      showToast('@' + res.nametag + ' is yours!');
+    } else { showToast(res.error || 'Nametag taken', 'error'); }
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+  btn.disabled = false; btn.textContent = 'Claim @name';
+}
+
+// ─── Rule Modal ───
+
+function toggleRuleType() {
+  const t = document.getElementById('ruleType').value;
+  document.getElementById('singlePayFields').style.display = (t === 'recurring' || t === 'dca') ? '' : 'none';
+  document.getElementById('multiPayFields').style.display = t === 'multi-pay' ? '' : 'none';
+  document.getElementById('threshFields').style.display = (t === 'threshold' || t === 'sweep') ? '' : 'none';
+}
+let rcpCount = 1;
+function addRecipientRow() {
+  if (rcpCount >= 10) return showToast('Max 10 recipients', 'error');
+  const row = document.createElement('div');
+  row.className = 'form-group';
+  row.style.cssText = 'display:flex;gap:8px;align-items:center';
+  row.innerHTML = '<input class="rcp-name" placeholder="@user" style="flex:1"><input class="rcp-amt" placeholder="amount" style="width:100px"><button class="copy-btn" onclick="this.parentElement.remove()" style="color:var(--rose)">\u2715</button>';
+  document.getElementById('recipientRows').appendChild(row);
+  rcpCount++;
+}
+function openModal() { rcpCount = document.querySelectorAll('#recipientRows .form-group').length; document.getElementById('ruleModal').classList.add('active'); }
 function closeModal() { document.getElementById('ruleModal').classList.remove('active'); }
 
 async function createRule() {
-  const payload = {
-    type: document.getElementById('ruleType').value,
-    name: document.getElementById('ruleName').value,
-    cron: document.getElementById('ruleCron').value,
-    recipient: document.getElementById('ruleRecipient').value,
-    amount: document.getElementById('ruleAmount').value,
-    minBalance: document.getElementById('ruleMinBalance').value,
-  };
+  const type = document.getElementById('ruleType').value;
+  const cron = document.getElementById('ruleCron').value.trim();
+  // Recurring/DCA/Sweep/Multi-pay need a cron schedule
+  if (['recurring', 'dca', 'sweep', 'multi-pay'].includes(type) && !cron) {
+    return showToast('Enter a cron schedule (e.g. daily, 30min, 0 9 * * 1)', 'error');
+  }
+  const payload = { type, name: document.getElementById('ruleName').value, coinSymbol: document.getElementById('ruleCoin').value, cron };
+  if (type === 'multi-pay') {
+    const rows = document.querySelectorAll('#recipientRows .form-group');
+    const recipients = [];
+    for (const row of rows) {
+      const r = row.querySelector('.rcp-name')?.value?.trim();
+      const a = row.querySelector('.rcp-amt')?.value?.trim();
+      if (r && a) recipients.push({ r, a });
+    }
+    if (recipients.length === 0) return showToast('Add at least one recipient', 'error');
+    payload.recipients = JSON.stringify(recipients);
+  } else {
+    payload.recipient = document.getElementById('ruleRecipient').value;
+    payload.amount = document.getElementById('ruleAmount').value;
+    payload.minBalance = document.getElementById('ruleMinBalance').value;
+  }
+  if (type === 'recurring' || type === 'dca') payload.minBalance = undefined;
+  if (type === 'threshold') payload.amount = undefined;
   try {
-    await fetch(API + '/api/rules', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload),
-    });
-    closeModal();
-    loadData();
+    await api('/api/rules', { method: 'POST', body: JSON.stringify(payload) });
+    closeModal(); showToast('Rule created'); loadData();
   } catch(e) { console.error(e); }
 }
 
-function copyAddress() {
-  navigator.clipboard.writeText(document.getElementById('walletAddress').textContent);
+// ─── Actions ───
+
+function copyAddr() { navigator.clipboard.writeText(document.getElementById('agentAddr').textContent).then(() => showToast('Address copied')); }
+function fundAgent() { navigator.clipboard.writeText(document.getElementById('agentAddr').textContent).then(() => showToast('Send UCT to this address \u2014 copied!')); }
+
+// ─── Tip ───
+function openTipModal() { document.getElementById('tipModal').classList.add('active'); }
+function closeTipModal() { document.getElementById('tipModal').classList.remove('active'); }
+async function sendTip() {
+  const btn = document.getElementById('tipSendBtn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try {
+    const res = await api('/api/tip', {
+      method: 'POST',
+      body: JSON.stringify({
+        recipient: document.getElementById('tipRecipient').value.trim(),
+        amount: document.getElementById('tipAmount').value.trim(),
+        coinSymbol: document.getElementById('tipCoin').value,
+        message: document.getElementById('tipMessage').value.trim(),
+      }),
+    }).then(r => r.json());
+    if (res.id) {
+      showToast('Tip sent! ' + res.amount + ' ' + res.coin + ' \u2192' + (res.txHash ? ' tx:' + res.txHash.slice(0, 10) : ''));
+      closeTipModal(); loadData();
+    } else { showToast(res.error || 'Tip failed', 'error'); }
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+  btn.disabled = false; btn.textContent = 'Send Tip';
 }
 
-loadData();
-setInterval(loadData, 10000);
+// ─── Mobile Nav ───
+function toggleMobileNav() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('active');
+}
+function closeMobileNav() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('active');
+}
 
-
-// Sphere wallet connect
-let sphereConnected = false;
-
-async function handleConnect() {
-  const btn = document.getElementById('connectWallet');
-  const text = document.getElementById('connectText');
-
-  if (sphereConnected) {
-    sphereConnected = false;
-    btn.classList.remove('connected');
-    text.textContent = 'Connect wallet';
-    return;
-  }
-
-  btn.classList.add('connected');
-  text.textContent = 'Connecting...';
-
-  if (window.autoConnect) {
-    try {
-      const result = await window.autoConnect({
-        dapp: { name: 'Treasury Manager', url: location.origin },
-        walletUrl: 'https://sphere.unicity.network',
-        permissions: ['identity:read', 'balance:read', 'tokens:read', 'history:read'],
-        silent: false,
-      });
-      const identity = result.connection.identity;
-      sphereConnected = true;
-      text.textContent = identity.nametag || identity.directAddress?.slice(0, 12) + '...';
-      return;
-    } catch(e) {
-      console.log('[Connect] Failed:', e);
+// ─── Auto-refresh ───
+let _refreshTimer = null;
+let _refreshCountdown = 0;
+function startAutoRefresh(intervalMs = 30000) {
+  if (_refreshTimer) clearInterval(_refreshTimer);
+  _refreshCountdown = Math.round(intervalMs / 1000);
+  const dot = document.getElementById('refreshDot');
+  const label = document.getElementById('refreshLabel');
+  dot.className = 'refresh-dot live';
+  label.textContent = _refreshCountdown + 's';
+  _refreshTimer = setInterval(() => {
+    _refreshCountdown--;
+    if (_refreshCountdown <= 0) {
+      _refreshCountdown = Math.round(intervalMs / 1000);
+      loadData();
     }
-  }
+    label.textContent = _refreshCountdown + 's';
+  }, 1000);
+}
 
-  btn.classList.remove('connected');
-  text.textContent = 'Connect wallet';
+// ─── Skeleton Loading ───
+function showSkeleton() {
+  document.getElementById('balanceStats').innerHTML =
+    '<div class="skel skel-stat" style="grid-column:span 4;margin-bottom:0"></div>';
+  document.getElementById('rulesContainer').innerHTML =
+    '<div class="skel skel-card"></div><div class="skel skel-card"></div>';
+  document.getElementById('historyContainer').innerHTML =
+    '<div class="skel skel-row"></div><div class="skel skel-row"></div>';
+}
 
-  if (window.confirm('Install the Sphere browser extension to connect your wallet.\n\nOpen the download page?')) {
-    window.open('https://sphere.unicity.network', '_blank');
+// ─── Theme Toggle ───
+const THEME_KEY = 'treasury_agent_theme';
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  localStorage.setItem(THEME_KEY, isLight ? 'light' : 'dark');
+}
+// Restore saved theme
+if (localStorage.getItem(THEME_KEY) === 'light') document.body.classList.add('light');
+
+// ─── Tab Navigation ───
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(el => el.style.display = 'none');
+  const tab = document.getElementById('tab-' + name);
+  if (tab) tab.style.display = '';
+  // Highlight correct nav item
+  document.querySelectorAll('.nav-item:not(.spacer)').forEach(el => {
+    el.classList.toggle('active', el.querySelector('.nav-label')?.textContent?.toLowerCase() === name);
+  });
+  // Load data on tab switch
+  if (name === 'logs') loadLogs();
+  if (name === 'messages') loadMessages();
+  if (name === 'notifications') loadNotifPrefs();
+}
+
+// ─── Execution Log ───
+async function loadLogs() {
+  const container = document.getElementById('logsContainer');
+  container.innerHTML = '<div class="history-empty"><span class="spinner"></span>Loading...</div>';
+  try {
+    const res = await api('/api/logs').then(r => r.json());
+    const logs = res.logs || [];
+    if (logs.length === 0) {
+      container.innerHTML = '<div class="history-empty">No execution logs yet. Logs appear when rules fire.</div>';
+      return;
+    }
+    container.innerHTML = '<div class="log-timeline">' + logs.slice().reverse().map((l, i) => {
+      const cls = (l.status === 'success' || l.status === 'failed') ? l.status : 'info';
+      const amtFmt = l.amount && l.amount !== '0' ? fmt(l.amount, l.coinSymbol || 'UCT') + ' ' + (l.coinSymbol || 'UCT') : '';
+      const tx = l.txHash ? '<span class="tx-hash" onclick="event.stopPropagation();navigator.clipboard.writeText(\'' + l.txHash + '\').then(()=>showToast(\'Tx hash copied\'))">' + l.txHash.slice(0, 12) + '&hellip;</span>' : '';
+      return '<div class="log-entry" onclick="showLogDetail(' + i + ')" style="cursor:pointer"><div class="log-dot ' + cls + '"></div><div class="log-body"><div class="log-time">' + new Date(l.timestamp).toLocaleString() + ' <span class="log-badge ' + cls + '">' + l.status + '</span></div><div class="log-rule">' + l.ruleName + ' <span class="rule-type">(' + l.ruleType + ')</span></div><div class="log-detail">' + (l.action === 'send' ? '\u2192 ' + (l.recipient || '') + ' ' : '') + (amtFmt ? amtFmt + ' ' : '') + l.detail.replace(l.txHash || 'noop', '').trim() + (tx ? ' ' + tx : '') + '</div></div></div>';
+    }).join('') + '</div>';
+    // Store logs data globally for detail modal
+    window.__logs = logs;
+  } catch(e) {
+    container.innerHTML = '<div class="history-empty" style="color:var(--rose)">Failed to load logs: ' + e.message + '</div>';
   }
 }
+
+// ─── Log Detail Modal ───
+function showLogDetail(idx) {
+  const logs = window.__logs || [];
+  const l = logs[logs.length - 1 - idx]; // reverse index
+  if (!l) return;
+  const amt = l.amount && l.amount !== '0' ? fmt(l.amount, l.coinSymbol || 'UCT') + ' ' + (l.coinSymbol || 'UCT') : '\u2014';
+  const dir = l.action === 'send' ? 'Outgoing' : l.action === 'alert' ? 'Alert' : 'Info';
+  const isIncoming = l.action === 'info' && l.ruleType !== 'threshold';
+  document.getElementById('logModal-title').textContent = l.ruleName || 'Execution';
+  document.getElementById('logModal-dir').textContent = dir;
+  document.getElementById('logModal-dir').style.color = l.status === 'success' ? 'var(--emerald)' : l.status === 'failed' ? '#ef4444' : 'var(--amber)';
+  document.getElementById('logModal-status').textContent = l.status.toUpperCase();
+  document.getElementById('logModal-status').className = 'log-badge ' + (l.status === 'success' || l.status === 'failed' ? l.status : 'info');
+  document.getElementById('logModal-type').textContent = l.ruleType + (l.coinSymbol ? ' \u00b7 ' + l.coinSymbol : '');
+  document.getElementById('logModal-amount').textContent = amt;
+  // Parse counterparty from detail if not stored
+  const detail = l.detail || '';
+  const cp = l.recipient || detail.match(/(?:to|from)\s+(@?\w+)/i)?.[1] || '';
+  document.getElementById('logModal-cp-label').textContent = isIncoming ? 'Sender' : 'Recipient';
+  document.getElementById('logModal-cp').textContent = cp || '\u2014';
+  document.getElementById('logModal-time').textContent = new Date(l.timestamp).toLocaleString();
+  document.getElementById('logModal-detail').textContent = detail || '\u2014';
+  // Parse tx hash from detail if not stored
+  const tx = l.txHash || detail.match(/tx:(\w+)/)?.[1] || '';
+  document.getElementById('logModal-tx').textContent = tx || '\u2014';
+  document.getElementById('logModal-tx-copy').style.display = tx ? 'inline-block' : 'none';
+  if (tx) document.getElementById('logModal-tx-copy').onclick = function() { navigator.clipboard.writeText(tx).then(() => showToast('Tx hash copied')); };
+  document.getElementById('logModal').classList.add('active');
+}
+function closeLogModal() { document.getElementById('logModal').classList.remove('active'); }
+
+// ─── Messages Chatbox ───
+let _replyTo = '';
+
+async function loadMessages() {
+  try {
+    const res = await api('/api/messages').then(r => r.json());
+    const msgs = res.messages || [];
+    const container = document.getElementById('chatContainer');
+    const empty = document.getElementById('chatEmpty');
+
+    if (msgs.length === 0) {
+      container.style.display = 'none';
+      empty.style.display = '';
+      document.getElementById('msgSubtitle').textContent = 'Inbox for forwarded DMs';
+      return;
+    }
+    container.style.display = 'flex';
+    empty.style.display = 'none';
+
+    const unread = msgs.filter(m => !m.read).length;
+    const badge = document.getElementById('msgUnreadCount');
+    if (unread > 0) { badge.style.display = 'flex'; badge.textContent = unread; }
+    else { badge.style.display = 'none'; }
+    document.getElementById('msgSubtitle').textContent = msgs.length + ' messages';
+
+    // Set reply target to the most recent incoming sender
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (!msgs[i].isReply) { _replyTo = msgs[i].from; break; }
+    }
+    document.getElementById('chatPartnerName').textContent = '@' + _replyTo;
+    document.getElementById('chatPartnerAvatar').textContent = (_replyTo || '?').slice(0, 2).toUpperCase();
+    document.getElementById('replyTarget').innerHTML = 'Replying to <strong>@' + _replyTo + '</strong>';
+
+    const c = document.getElementById('chatMessages');
+    c.innerHTML = msgs.map(m => {
+      const isOut = m.isReply;
+      const time = new Date(m.timestamp).toLocaleString();
+      const initials = (m.from || '?').slice(0, 2).toUpperCase();
+      const name = m.from;
+      return '<div class="chat-bubble ' + (isOut ? 'out' : 'in') + '">' +
+        '<div class="bubble-avatar">' + initials + '</div>' +
+        '<div class="bubble-body">' +
+        '<div class="bubble-name">' + name + '</div>' +
+        '<div class="bubble-text">' + m.content + '</div>' +
+        '<div class="bubble-time">' + time + '</div>' +
+        '</div></div>';
+    }).join('');
+    c.scrollTop = c.scrollHeight;
+  } catch(e) {
+    document.getElementById('chatMessages').innerHTML = '<div class="msg-empty" style="color:var(--rose)">Failed: ' + e.message + '</div>';
+  }
+}
+
+async function sendReply() {
+  const input = document.getElementById('chatInput');
+  const content = input.value.trim();
+  if (!content || !_replyTo) return;
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try {
+    const res = await api('/api/messages/reply', {
+      method: 'POST',
+      body: JSON.stringify({ to: _replyTo, content }),
+    }).then(r => r.json());
+    if (res.ok) {
+      input.value = '';
+      loadMessages();
+    } else {
+      showToast(res.error || 'Failed to send', 'error');
+    }
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Send';
+}
+
+// ─── Notification Preferences ───
+async function loadNotifPrefs() {
+  try {
+    const res = await api('/api/notifications/prefs').then(r => r.json());
+    const p = res.prefs || {};
+    document.getElementById('pref-ruleExecution').checked = p.onRuleExecution !== false;
+    document.getElementById('pref-deposit').checked = p.onDeposit !== false;
+    document.getElementById('pref-error').checked = p.onError !== false;
+    document.getElementById('pref-threshold').checked = p.onThreshold !== false;
+    document.getElementById('pref-dmEnabled').checked = p.dmEnabled === true;
+    document.getElementById('pref-dmRecipient').value = p.dmRecipient || '';
+    document.getElementById('pref-webhookUrl').value = p.webhookUrl || '';
+    toggleDmField();
+  } catch(e) { console.log('Failed to load prefs:', e); }
+}
+async function saveNotifPrefs() {
+  try {
+    await api('/api/notifications/prefs', {
+      method: 'POST',
+      body: JSON.stringify({
+        onRuleExecution: document.getElementById('pref-ruleExecution').checked,
+        onDeposit: document.getElementById('pref-deposit').checked,
+        onError: document.getElementById('pref-error').checked,
+        onThreshold: document.getElementById('pref-threshold').checked,
+        dmEnabled: document.getElementById('pref-dmEnabled').checked,
+        dmRecipient: document.getElementById('pref-dmRecipient').value.trim(),
+        webhookUrl: document.getElementById('pref-webhookUrl').value.trim(),
+      }),
+    });
+  } catch(e) { console.log('Failed to save prefs:', e); }
+}
+function toggleDmField() {
+  const on = document.getElementById('pref-dmEnabled').checked;
+  document.getElementById('dmRecipientRow').style.display = on ? '' : 'none';
+  if (!on) saveNotifPrefs();
+}
+
+// ─── Auto-login ───
+(async function init() {
+  const token = localStorage.getItem(SESSION_KEY);
+  if (token) {
+    try { const res = await api('/api/agent/load', { method: 'POST' }).then(r => r.json()); if (res.address) return enterDashboard(res); } catch {}
+    localStorage.removeItem(SESSION_KEY);
+  }
+})();
 </script>
 </body>
 </html>

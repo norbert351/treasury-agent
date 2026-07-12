@@ -240,29 +240,6 @@ app.post('/api/rules', async (req, res) => {
   }
 });
 
-// ─── PATCH / DELETE rule by id ───
-app.patch('/api/rules/:id', (req, res) => {
-  const session = getSession(req, res);
-  if (!session) return;
-  const rule = session.rules.find(r => r.id === req.params.id);
-  if (!rule) return res.status(404).json({ error: 'Rule not found' });
-  if (req.body.active !== undefined) rule.active = req.body.active;
-  if (req.body.name !== undefined) rule.name = req.body.name;
-  if (req.body.cron !== undefined) rule.cron = req.body.cron;
-  saveSession(session);
-  res.json(rule);
-});
-
-app.delete('/api/rules/:id', (req, res) => {
-  const session = getSession(req, res);
-  if (!session) return;
-  const idx = session.rules.findIndex(r => r.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Rule not found' });
-  const removed = session.rules.splice(idx, 1)[0];
-  saveSession(session);
-  res.json({ deleted: removed.id });
-});
-
 app.post('/api/refresh', async (req, res) => {
   const session = getSession(req, res);
   if (!session) return;
