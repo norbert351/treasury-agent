@@ -575,11 +575,12 @@ app.post('/api/messages/reply', async (req, res) => {
 // Export for Vercel serverless
 export { app };
 
-// Standalone server (used by tsx src/api/server.ts)
-app.listen(env.PORT, () => {
-  console.log(`[API] Treasury Manager running on http://localhost:${env.PORT}`);
-  const count = listSessions().length;
-  console.log(`[API] ${count} existing user session(s)`);
-});
-
-export { app };
+// Standalone server (only runs when executed directly, not when imported by Vercel)
+const isMainModule = process.argv[1]?.includes('server');
+if (!process.env.VERCEL && isMainModule) {
+  app.listen(env.PORT, () => {
+    console.log(`[API] Treasury Manager running on http://localhost:${env.PORT}`);
+    const count = listSessions().length;
+    console.log(`[API] ${count} existing user session(s)`);
+  });
+}
