@@ -572,6 +572,10 @@ app.post('/api/messages/reply', async (req, res) => {
 
 // ─── Start ───
 
+// Export for Vercel serverless
+export { app };
+
+// Standalone server (used by tsx src/api/server.ts)
 app.listen(env.PORT, () => {
   console.log(`[API] Treasury Manager running on http://localhost:${env.PORT}`);
   const count = listSessions().length;
