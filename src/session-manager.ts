@@ -406,6 +406,7 @@ async function sendNotification(
 /**
  * Robust payment helper: opens the wallet-api-enabled wallet, resumes open intents,
  * receives pending transfers, checks the live balance, then sends.
+ * If `existingSphere` is passed, it is reused (caller handles lifecycle).
  * Returns { ok, status, txHash, message } and never throws.
  */
 export async function sendPayment(
@@ -414,14 +415,18 @@ export async function sendPayment(
   amount: string,            // smallest-unit decimal string
   coinSymbol: string,
   memo?: string,
+  existingSphere?: Sphere | null,
 ): Promise<{ ok: boolean; status: string; txHash?: string; message: string; deliveryPending?: boolean }> {
   const cleanRecipient = String(recipient || '').replace(/^@/, '').trim();
   const coinId = getCoinIdBySymbol(coinSymbol) || coinSymbol;
-  let sphere: Sphere | null = null;
+  const ownsSphere = !existingSphere;
+  let sphere: Sphere | null = existingSphere || null;
 
   try {
-    sphere = await openSessionWallet(session);
-    if (!sphere) return { ok: false, status: 'failed', message: 'Could not open wallet' };
+    if (!sphere) {
+      sphere = await openSessionWallet(session);
+      if (!sphere) return { ok: false, status: 'failed', message: 'Could not open wallet' };
+    }
 
     // Resume any intents left open by a previous crash/CERTIFICATION_UNCONFIRMED.
     try { await sphere.payments.resumeOpenIntents(); } catch { /* non-critical */ }
@@ -474,7 +479,7 @@ export async function sendPayment(
     }
     return { ok: false, status: 'failed', message: err?.message || 'Payment failed' };
   } finally {
-    if (sphere) {
+    if (ownsSphere && sphere) {
       try { await Promise.race([sphere.destroy(), new Promise(r => setTimeout(r, 5000))]); } catch { /* ignore */ }
     }
   }
@@ -497,7 +502,7 @@ async function executePayment(
   const logId = crypto.randomUUID();
   const ts = new Date().toISOString();
 
-  const result = await sendPayment(session, cleanRecipient, amount, coinSymbol, `Recurring: ${rule.name}`);
+  const result = await sendPayment(session, cleanRecipient, amount, coinSymbol, `Recurring: ${rule.name}`, sphere);
 
   if (result.ok) {
     rule.lastRunAt = ts;
@@ -551,54 +556,58 @@ async function executePayment(
 }
 
 /**
- * Cron due check — fires when scheduled local time is past and not yet run this slot.
- * Handles star-slash-N minute steps and standard 5-field cron. Uses !isNaN (never truthy hour/min checks).
+ * Determine whether a cron rule should fire now.
+ * Handles standard 5-field cron plus `*/N` minute steps. Returns { shouldFire, scheduleTime }.
  */
-function isCronDue(cron: string, lastRunAt: string | null, now = new Date()): boolean {
+function isCronDue(cron: string, lastRunAt: string | null, now = new Date()): { shouldFire: boolean; scheduleTime: Date } {
   const parts = cron.trim().split(/\s+/);
-  if (parts.length < 5) return false;
-  const [minStr, hourStr, dom, mon, dow] = parts;
-
-  // Minute step: */15, */30
-  if (minStr.startsWith('*/')) {
-    const step = parseInt(minStr.slice(2), 10);
-    if (!step || step <= 0) return false;
-    if (!lastRunAt) return true;
-    return now.getTime() - new Date(lastRunAt).getTime() >= step * 60 * 1000;
-  }
-
-  const minute = parseInt(minStr, 10);
-  const hour = parseInt(hourStr, 10);
   const sched = new Date(now);
   sched.setSeconds(0, 0);
-  if (!isNaN(hour)) sched.setHours(hour);
-  if (!isNaN(minute)) sched.setMinutes(minute);
-  if (dom !== '*') {
-    sched.setDate(parseInt(dom, 10));
-    if (sched > now) sched.setMonth(sched.getMonth() - 1);
+
+  if (parts.length >= 5) {
+    const [minStr, hourStr, dom, mon, dow] = parts;
+
+    // Minute step: */15, */30, */5
+    if (minStr.startsWith('*/')) {
+      const step = parseInt(minStr.slice(2), 10);
+      if (step && step > 0) {
+        sched.setMinutes(Math.floor(now.getMinutes() / step) * step, 0, 0);
+      }
+      const shouldFire = !lastRunAt || new Date(lastRunAt) < sched;
+      return { shouldFire, scheduleTime: sched };
+    }
+
+    const minute = parseInt(minStr, 10);
+    const hour = parseInt(hourStr, 10);
+    if (!isNaN(hour)) sched.setHours(hour);
+    if (!isNaN(minute)) sched.setMinutes(minute);
+    if (dom !== '*') {
+      sched.setDate(parseInt(dom, 10));
+      if (sched > now) sched.setMonth(sched.getMonth() - 1);
+    }
+    if (dow !== '*') {
+      const diff = (parseInt(dow, 10) - sched.getDay() + 7) % 7;
+      if (diff > 0) sched.setDate(sched.getDate() - 7 + diff);
+    }
   }
-  if (dow !== '*') {
-    const diff = (parseInt(dow, 10) - sched.getDay() + 7) % 7;
-    if (diff > 0) sched.setDate(sched.getDate() - 7 + diff);
-  }
-  return sched <= now && (!lastRunAt || new Date(lastRunAt) < sched);
+
+  const shouldFire = sched <= now && (!lastRunAt || new Date(lastRunAt) < sched);
+  return { shouldFire, scheduleTime: sched };
 }
 
 async function fireWithTimeout(
   fn: () => Promise<void>,
-  rule: UserRule,
+  timeoutMs: number,
   label: string,
 ): Promise<void> {
   try {
-    const timeoutPromise = new Promise<never>((_, rej) =>
-      setTimeout(() => rej(new Error('Payment timeout')), 30000),
-    );
-    await Promise.race([fn(), timeoutPromise]);
-  } catch (fireErr: any) {
-    console.error(`[Agent] Rule "${label}" error:`, fireErr?.message || fireErr);
+    await Promise.race([
+      fn(),
+      new Promise<void>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs)),
+    ]);
+  } catch (err: any) {
+    console.error(`[Agent] ${label} timed out:`, err?.message);
   }
-  // Always stamp lastRunAt so failures don't re-fire every 10 min
-  rule.lastRunAt = new Date().toISOString();
 }
 
 /**
@@ -693,106 +702,43 @@ export async function processSessionRules(session: UserSession): Promise<void> {
     for (const rule of session.rules) {
       if (rule.active !== 'true') continue;
 
-      const coinId = getCoinIdBySymbol(rule.coinSymbol || 'UCT');
+      const coinSymbol = rule.coinSymbol || 'UCT';
+      const coinId = getCoinIdBySymbol(coinSymbol);
       if (!coinId) continue;
 
-      if (rule.type === 'recurring' && rule.cron && rule.recipient && rule.amount) {
-        const parts = rule.cron.split(' ');
-        if (parts.length >= 5) {
-          const minute = parseInt(parts[0]);
-          const hour = parseInt(parts[1]);
-          const dom = parts[2]; const mon = parts[3]; const dow = parts[4];
-          const now = new Date();
-          const sched = new Date(now);
-          sched.setSeconds(0, 0);
-          if (!isNaN(hour)) sched.setHours(hour);
-          if (!isNaN(minute)) sched.setMinutes(minute);
-          if (dom !== '*') { sched.setDate(parseInt(dom)); if (sched > now) sched.setMonth(sched.getMonth() - 1); }
-          if (dow !== '*') { const diff = (parseInt(dow) - sched.getDay() + 7) % 7; if (diff > 0) sched.setDate(sched.getDate() - 7 + diff); }
+      const now = new Date();
 
-          const shouldFire = sched <= now && (!rule.lastRunAt || new Date(rule.lastRunAt) < sched);
-          if (shouldFire) {
-            console.log(`[Agent] Firing rule "${rule.name}": sched=${sched.toISOString()} lastRun=${rule.lastRunAt}`);
-            try {
-              const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('Payment timeout')), 60000));
-              await Promise.race([executePayment(sphere, session, rule, coinId, rule.recipient!.replace(/^@/, ''), rule.amount!, rule.coinSymbol || 'UCT'), timeoutPromise]);
-            } catch (fireErr: any) {
-              console.error(`[Agent] Rule "${rule.name}" error:`, fireErr?.message || fireErr);
-            }
-          }
-        }
-      }
+      // Cron-based payment rules
+      if (rule.cron && ['recurring', 'dca', 'multi-pay', 'sweep'].includes(rule.type)) {
+        const { shouldFire, scheduleTime } = isCronDue(rule.cron, rule.lastRunAt, now);
+        if (!shouldFire) continue;
 
-      // Multi-pay: pay multiple recipients in one rule
-      if (rule.type === 'multi-pay' && rule.cron && rule.recipients) {
-        const parts = rule.cron.split(' ');
-        if (parts.length >= 5) {
-          const minute = parseInt(parts[0]);
-          const hour = parseInt(parts[1]);
-          const dom = parts[2]; const mon = parts[3]; const dow = parts[4];
-          const now = new Date();
-          const sched = new Date(now); sched.setSeconds(0, 0);
-          if (!isNaN(hour)) sched.setHours(hour);
-          if (!isNaN(minute)) sched.setMinutes(minute);
-          if (dom !== '*') { sched.setDate(parseInt(dom)); if (sched > now) sched.setMonth(sched.getMonth() - 1); }
-          if (dow !== '*') { const diff = (parseInt(dow) - sched.getDay() + 7) % 7; if (diff > 0) sched.setDate(sched.getDate() - 7 + diff); }
-          if (sched <= now && (!rule.lastRunAt || new Date(rule.lastRunAt) < sched)) {
-            let recipients: Array<{r: string; a: string}> = [];
-            try { recipients = JSON.parse(rule.recipients); } catch {}
-            for (const rcp of recipients.slice(0, 10)) {
-              const amtSmallest = toSmallestUnits(rcp.a, rule.coinSymbol || 'UCT');
-              await executePayment(sphere, session, rule, coinId, rcp.r, amtSmallest, rule.coinSymbol || 'UCT');
-            }
-          }
-        }
-      }
+        console.log(`[Agent] Firing rule "${rule.name}": sched=${scheduleTime.toISOString()} lastRun=${rule.lastRunAt}`);
 
-      // DCA / Auto-invest: same as recurring but labeled as investment
-      if (rule.type === 'dca' && rule.cron && rule.recipient && rule.amount) {
-        const parts = rule.cron.split(' ');
-        if (parts.length >= 5) {
-          const minute = parseInt(parts[0]);
-          const hour = parseInt(parts[1]);
-          const dom = parts[2]; const mon = parts[3]; const dow = parts[4];
-          const now = new Date();
-          const sched = new Date(now); sched.setSeconds(0, 0);
-          if (!isNaN(hour)) sched.setHours(hour);
-          if (!isNaN(minute)) sched.setMinutes(minute);
-          if (dom !== '*') { sched.setDate(parseInt(dom)); if (sched > now) sched.setMonth(sched.getMonth() - 1); }
-          if (dow !== '*') { const diff = (parseInt(dow) - sched.getDay() + 7) % 7; if (diff > 0) sched.setDate(sched.getDate() - 7 + diff); }
-          if (sched <= now && (!rule.lastRunAt || new Date(rule.lastRunAt) < sched)) {
-            await executePayment(sphere, session, rule, coinId, rule.recipient!, rule.amount!, rule.coinSymbol || 'UCT');
+        if (rule.type === 'multi-pay' && rule.recipients) {
+          let recipients: Array<{r: string; a: string}> = [];
+          try { recipients = JSON.parse(rule.recipients); } catch {}
+          for (const rcp of recipients.slice(0, 10)) {
+            const amtSmallest = toSmallestUnits(rcp.a, coinSymbol);
+            await fireWithTimeout(() => executePayment(sphere, session, rule, coinId, rcp.r, amtSmallest, coinSymbol), 60000, `multi-pay ${rule.name}`);
           }
-        }
-      }
-
-      // Sweep: on cron, if balance > threshold, sweep excess to recipient
-      if (rule.type === 'sweep' && rule.cron && rule.recipient && rule.minBalance) {
-        const parts = rule.cron.split(' ');
-        if (parts.length >= 5) {
-          const minute = parseInt(parts[0]);
-          const hour = parseInt(parts[1]);
-          const dom = parts[2]; const mon = parts[3]; const dow = parts[4];
-          const now = new Date();
-          const sched = new Date(now); sched.setSeconds(0, 0);
-          if (!isNaN(hour)) sched.setHours(hour);
-          if (!isNaN(minute)) sched.setMinutes(minute);
-          if (dom !== '*') { sched.setDate(parseInt(dom)); if (sched > now) sched.setMonth(sched.getMonth() - 1); }
-          if (dow !== '*') { const diff = (parseInt(dow) - sched.getDay() + 7) % 7; if (diff > 0) sched.setDate(sched.getDate() - 7 + diff); }
-          if (sched <= now && (!rule.lastRunAt || new Date(rule.lastRunAt) < sched)) {
-            const coinBal = session.balances[rule.coinSymbol || 'UCT'] || '0';
-            const min = BigInt(rule.minBalance);
-            const current = BigInt(coinBal || '0');
-            if (current > min) {
-              const excess = (current - min).toString();
-              await executePayment(sphere, session, rule, coinId, rule.recipient!, excess, rule.coinSymbol || 'UCT');
-            }
+        } else if (rule.type === 'sweep' && rule.recipient && rule.minBalance) {
+          const coinBal = session.balances[coinSymbol] || '0';
+          const min = BigInt(rule.minBalance);
+          const current = BigInt(coinBal || '0');
+          if (current > min) {
+            const excess = (current - min).toString();
+            await fireWithTimeout(() => executePayment(sphere, session, rule, coinId, rule.recipient, excess, coinSymbol), 60000, `sweep ${rule.name}`);
           }
+        } else if (rule.recipient && rule.amount) {
+          // recurring / dca
+          await fireWithTimeout(() => executePayment(sphere, session, rule, coinId, rule.recipient, rule.amount, coinSymbol), 60000, `recurring ${rule.name}`);
         }
+        continue;
       }
 
       if (rule.type === 'threshold' && rule.minBalance) {
-        const coinBal = session.balances[rule.coinSymbol || 'UCT'] || '0';
+        const coinBal = session.balances[coinSymbol] || '0';
         const min = BigInt(rule.minBalance);
         const current = BigInt(coinBal || '0');
         if (current < min) {
@@ -802,9 +748,9 @@ export async function processSessionRules(session: UserSession): Promise<void> {
             type: 'alert',
             amount: coinBal,
             status: 'alert',
-            coinSymbol: rule.coinSymbol || 'UCT',
+            coinSymbol,
             timestamp: ts,
-            detail: `${rule.coinSymbol || 'UCT'} balance ${coinBal} below threshold ${rule.minBalance}`,
+            detail: `${coinSymbol} balance ${coinBal} below threshold ${rule.minBalance}`,
           });
           session.executionLogs.push({
             id: crypto.randomUUID(),
@@ -813,13 +759,13 @@ export async function processSessionRules(session: UserSession): Promise<void> {
             ruleType: rule.type,
             action: 'alert',
             amount: coinBal,
-            coinSymbol: rule.coinSymbol || 'UCT',
+            coinSymbol,
             recipient: null,
             status: 'info',
-            detail: `⚠️ ${fmtHuman(coinBal, rule.coinSymbol || 'UCT')} ${rule.coinSymbol || 'UCT'} below threshold`,
+            detail: `⚠️ ${fmtHuman(coinBal, coinSymbol)} ${coinSymbol} below threshold`,
           });
           if (session.notificationPrefs?.onThreshold !== false) {
-            await sendNotification(sphere, session, 'Threshold Alert', `${rule.name}: ${fmtHuman(coinBal, rule.coinSymbol || 'UCT')} ${rule.coinSymbol || 'UCT'} below min ${fmtHuman(rule.minBalance, rule.coinSymbol || 'UCT')}`);
+            await sendNotification(sphere, session, 'Threshold Alert', `${rule.name}: ${fmtHuman(coinBal, coinSymbol)} ${coinSymbol} below min ${fmtHuman(rule.minBalance, coinSymbol)}`);
           }
         }
       }
