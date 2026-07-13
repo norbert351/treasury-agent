@@ -839,6 +839,7 @@ function copyRecovery() {
 function enterDashboard(data) {
   document.getElementById('landing').style.display = 'none';
   document.getElementById('dashboard').classList.add('active');
+  if (data.token) localStorage.setItem(SESSION_KEY, data.token);
   if (data.mnemonic) _mnemonic = data.mnemonic;
   const display = data.nametag ? '@' + data.nametag : data.address || '\u2014';
   document.getElementById('agentAddr').textContent = display;
@@ -1053,8 +1054,8 @@ async function sendTip() {
         message: document.getElementById('tipMessage').value.trim(),
       }),
     }).then(r => r.json());
-    if (res.id) {
-      showToast('Tip sent! ' + res.amount + ' ' + res.coin + ' \u2192' + (res.txHash ? ' tx:' + res.txHash.slice(0, 10) : ''));
+    if (res.status === 'processing' || res.id) {
+      showToast((res.message || 'Tip is being sent'));
       closeTipModal(); loadData();
     } else { showToast(res.error || 'Tip failed', 'error'); }
   } catch(e) { showToast('Error: ' + e.message, 'error'); }

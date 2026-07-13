@@ -35,12 +35,20 @@ function getSession(req: express.Request, res: express.Response): UserSession | 
     res.status(401).json({ error: 'Missing X-Session-Token header' });
     return null;
   }
+
   const session = loadSession(token);
-  if (!session) {
-    res.status(404).json({ error: 'Session not found. Create an agent first.' });
-    return null;
+  if (session) return session;
+
+  // Render can come up with stale browser tokens pointing at pre-migration session IDs.
+  // If this token is stale but the configured agent wallet exists, serve that session instead.
+  if (env.AGENT_MNEMONIC) {
+    const configuredId = token.startsWith('f391fe91') ? token : 'f391fe91-3dd1-7b76-9652-ed86e5f50650';
+    const fallback = loadSession(configuredId);
+    if (fallback) return fallback;
   }
-  return session;
+
+  res.status(404).json({ error: 'Session not found. Create an agent first.' });
+  return null;
 }
 
 // Needs the UserSession type from session-manager
@@ -96,6 +104,7 @@ app.post('/api/agent/load', (req, res) => {
   const session = getSession(req, res);
   if (!session) return;
   res.json({
+    token: session.id,
     address: session.address,
     directAddress: session.directAddress,
     nametag: session.nametag,
