@@ -355,6 +355,9 @@ app.post('/api/tip', async (req, res) => {
     const sphere = await openSessionWalletDirect(session);
     if (!sphere) { console.error('[Tip] Failed to open wallet'); return; }
 
+    // Receive pending tokens first so the engine knows what we have
+    try { await sphere.payments.receive(); } catch { /* ok */ }
+
     const result = await sphere.payments.send({
       coinId,
       amount: amtSmallest,
@@ -381,7 +384,7 @@ app.post('/api/tip', async (req, res) => {
     });
     saveSession(session);
     console.log(`[Tip] Sent ${amount} ${coin} to ${recipient} — tx:${txHash?.slice(0, 12) || 'pending'}`);
-    await sphere.destroy();
+    await Promise.race([sphere.destroy(), new Promise(r => setTimeout(r, 5000))]);
   } catch (err: any) {
     console.error('[Tip] Background send failed:', err?.message);
     // Log failed attempt
