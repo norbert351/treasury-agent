@@ -4,6 +4,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { env } from './config.js';
+import { db } from './db/index.js';
+import { sessions } from './db/schema.js';
+import { eq, desc } from 'drizzle-orm';
 
 // All fungible tokens on testnet2 — the agent can check & send these
 export const KNOWN_COINS = ['UCT', 'BTC', 'ETH', 'SOL', 'USDT', 'USDC', 'USDU', 'EURU', 'ALPHT', 'DDSC'] as const;
@@ -150,6 +153,11 @@ function sessionPath(id: string) { return resolve(SESSIONS_DIR, id); }
 function sessionFile(id: string) { return resolve(SESSIONS_DIR, id, 'session.json'); }
 
 export function listSessions(): string[] {
+  try {
+    // Try DB first
+    const rows = db.select({ id: sessions.id }).from(sessions).orderBy(desc(sessions.updatedAt)).all();
+    if (rows.length > 0) return rows.map(r => r.id);
+  } catch { /* DB not available, fall back to files */ }
   if (!existsSync(SESSIONS_DIR)) return [];
   return readdirSync(SESSIONS_DIR).filter(f => {
     try { return existsSync(resolve(SESSIONS_DIR, f, 'session.json')); }
@@ -159,11 +167,29 @@ export function listSessions(): string[] {
 
 export function loadSession(id: string): UserSession | null {
   try {
+    // Try DB first
+    const row = db.select({ data: sessions.data }).from(sessions).where(eq(sessions.id, id)).get();
+    if (row) {
+      const raw = row.data as any;
+      if (!raw.notificationPrefs) raw.notificationPrefs = { ...DEFAULT_NOTIFICATION_PREFS };
+      else {
+        const defs = DEFAULT_NOTIFICATION_PREFS;
+        for (const key of Object.keys(defs) as (keyof NotificationPrefs)[]) {
+          if (raw.notificationPrefs[key] === undefined) raw.notificationPrefs[key] = defs[key];
+        }
+      }
+      if (!raw.executionLogs) raw.executionLogs = [];
+      if (!raw.lastReceivedAt) raw.lastReceivedAt = null;
+      if (!raw.lastMsgCheckedAt) raw.lastMsgCheckedAt = null;
+      if (!raw.forwardedMessages) raw.forwardedMessages = [];
+      return raw;
+    }
+  } catch { /* DB not available */ }
+  // File fallback
+  try {
     const raw = JSON.parse(readFileSync(sessionFile(id), 'utf-8'));
-    // Backward compat: ensure new fields exist on old sessions
     if (!raw.notificationPrefs) raw.notificationPrefs = { ...DEFAULT_NOTIFICATION_PREFS };
     else {
-      // Patch missing keys within existing prefs
       const defs = DEFAULT_NOTIFICATION_PREFS;
       for (const key of Object.keys(defs) as (keyof NotificationPrefs)[]) {
         if (raw.notificationPrefs[key] === undefined) raw.notificationPrefs[key] = defs[key];
@@ -178,6 +204,12 @@ export function loadSession(id: string): UserSession | null {
 }
 
 export function saveSession(session: UserSession): void {
+  // Try DB first
+  try {
+    db.insert(sessions).values({ id: session.id, data: session as any }).onConflictDoUpdate({ target: sessions.id, set: { data: session as any, updatedAt: new Date() } }).run();
+    return;
+  } catch { /* DB not available */ }
+  // File fallback
   const dir = sessionPath(session.id);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(sessionFile(session.id), JSON.stringify(session, null, 2));

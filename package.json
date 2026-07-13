@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "agent": "tsx src/agent.ts",
-    "api": "tsx src/api/server.ts",
+    "api": "tsx src/db/migrate.ts && tsx src/api/server.ts",
+    "start": "tsx src/db/migrate.ts && tsx src/api/server.ts",
     "dev": "concurrently \"tsx src/agent.ts\" \"tsx src/api/server.ts\"",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate"

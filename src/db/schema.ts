@@ -1,5 +1,12 @@
 import { pgTable, uuid, text, timestamp, bigint, jsonb } from 'drizzle-orm/pg-core';
 
+export const sessions = pgTable('sessions', {
+  id: text('id').primaryKey(),
+  data: jsonb('data').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const rules = pgTable('rules', {
   id: uuid('id').primaryKey().defaultRandom(),
   type: text('type', { enum: ['recurring', 'threshold', 'auto-invest'] }).notNull(),
