@@ -1054,10 +1054,14 @@ async function sendTip() {
         message: document.getElementById('tipMessage').value.trim(),
       }),
     }).then(r => r.json());
-    if (res.status === 'processing' || res.id) {
-      showToast((res.message || 'Tip is being sent'));
+    if (res.id) {
+      const suffix = res.txHash ? ' tx:' + res.txHash.slice(0, 10) : '';
+      const pending = res.deliveryPending ? ' (delivery pending)' : '';
+      showToast((res.message || 'Tip sent!') + suffix + pending);
       closeTipModal(); loadData();
-    } else { showToast(res.error || 'Tip failed', 'error'); }
+    } else {
+      showToast(res.error || 'Tip failed', 'error');
+    }
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
   btn.disabled = false; btn.textContent = 'Send Tip';
 }

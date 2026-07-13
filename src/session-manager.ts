@@ -1,4 +1,4 @@
-import { Sphere, getCoinIdBySymbol } from '@unicitylabs/sphere-sdk';
+import { Sphere, getCoinIdBySymbol, isSphereError } from '@unicitylabs/sphere-sdk';
 import { createNodeProviders, createWalletApiProviders } from '@unicitylabs/sphere-sdk/impl/nodejs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
@@ -404,35 +404,109 @@ async function sendNotification(
 }
 
 /**
- * Execute a single payment: send, log, capture txHash, notify.
+ * Robust payment helper: opens the wallet-api-enabled wallet, resumes open intents,
+ * receives pending transfers, checks the live balance, then sends.
+ * Returns { ok, status, txHash, message } and never throws.
  */
-async function executePayment(
-  sphere: Sphere,
+export async function sendPayment(
   session: UserSession,
-  rule: UserRule,
-  coinId: string,
   recipient: string,
-  amount: string,
+  amount: string,            // smallest-unit decimal string
   coinSymbol: string,
-): Promise<void> {
-  // SDK expects bare nametag — @ prefix hangs transfers for unknown identities
+  memo?: string,
+): Promise<{ ok: boolean; status: string; txHash?: string; message: string; deliveryPending?: boolean }> {
   const cleanRecipient = String(recipient || '').replace(/^@/, '').trim();
-  const logId = crypto.randomUUID();
-  const ts = new Date().toISOString();
+  const coinId = getCoinIdBySymbol(coinSymbol) || coinSymbol;
+  let sphere: Sphere | null = null;
+
   try {
+    sphere = await openSessionWallet(session);
+    if (!sphere) return { ok: false, status: 'failed', message: 'Could not open wallet' };
+
+    // Resume any intents left open by a previous crash/CERTIFICATION_UNCONFIRMED.
+    try { await sphere.payments.resumeOpenIntents(); } catch { /* non-critical */ }
+
+    // Pull any incoming transfers so the balance is current.
+    try { await sphere.payments.receive(); } catch { /* non-critical */ }
+
+    // Read live balance from wallet-api assets.
+    const assets = await sphere.payments.getAssets();
+    const asset = assets.find((a: any) => (a.symbol || '').toUpperCase() === coinSymbol.toUpperCase());
+    const available = asset?.totalAmount || '0';
+    if (BigInt(available) < BigInt(amount)) {
+      return { ok: false, status: 'failed', message: `Insufficient balance: have ${fmtHuman(available, coinSymbol)} ${coinSymbol}, need ${fmtHuman(amount, coinSymbol)} ${coinSymbol}` };
+    }
+
     const result = await sphere.payments.send({
       coinId,
       amount,
       recipient: cleanRecipient,
-      memo: `Recurring: ${rule.name}`,
+      memo: memo || `Payment from ${session.nametag || session.id.slice(0, 8)}`,
     });
-    rule.lastRunAt = ts;
+
     const txHash = result.tokenTransfers?.find((t: any) => t.requestIdHex)?.requestIdHex;
+
+    // Save any balance changes.
+    try {
+      await sphere.payments.receive();
+      const refreshed = await sphere.payments.getAssets();
+      for (const sym of KNOWN_COINS) {
+        const a = refreshed.find((x: any) => (x.symbol || '').toUpperCase() === sym.toUpperCase());
+        session.balances[sym] = a?.totalAmount ?? session.balances[sym] ?? '0';
+      }
+      session.balance = session.balances['UCT'] || '0';
+      session.lastChecked = new Date().toISOString();
+      saveSession(session);
+    } catch { /* non-critical */ }
+
+    return {
+      ok: result.status === 'completed' || result.deliveryPending === true,
+      status: result.status,
+      txHash,
+      message: result.deliveryPending
+        ? `Sent ${fmtHuman(amount, coinSymbol)} ${coinSymbol} — delivery pending`
+        : `Sent ${fmtHuman(amount, coinSymbol)} ${coinSymbol}`,
+      deliveryPending: result.deliveryPending,
+    };
+  } catch (err: any) {
+    if (isSphereError(err) && err.code === 'CERTIFICATION_UNCONFIRMED') {
+      return { ok: true, status: 'pending_confirmation', message: 'Payment is pending final confirmation. Do not retry.' };
+    }
+    return { ok: false, status: 'failed', message: err?.message || 'Payment failed' };
+  } finally {
+    if (sphere) {
+      try { await Promise.race([sphere.destroy(), new Promise(r => setTimeout(r, 5000))]); } catch { /* ignore */ }
+    }
+  }
+}
+
+/**
+ * Execute a single payment: send, log, capture txHash, notify.
+ * Uses the wallet-api-enabled sendPayment helper so sends actually land.
+ */
+async function executePayment(
+  sphere: Sphere | null,
+  session: UserSession,
+  rule: UserRule,
+  _coinId: string,
+  recipient: string,
+  amount: string,
+  coinSymbol: string,
+): Promise<void> {
+  const cleanRecipient = String(recipient || '').replace(/^@/, '').trim();
+  const logId = crypto.randomUUID();
+  const ts = new Date().toISOString();
+
+  const result = await sendPayment(session, cleanRecipient, amount, coinSymbol, `Recurring: ${rule.name}`);
+
+  if (result.ok) {
+    rule.lastRunAt = ts;
+    const txHash = result.txHash;
     session.transactions.push({
-      id: result.id,
+      id: crypto.randomUUID(),
       type: 'send',
       amount,
-      status: String(result.status),
+      status: result.status,
       txHash,
       counterparty: cleanRecipient ? '@' + cleanRecipient : null,
       coinSymbol,
@@ -453,11 +527,11 @@ async function executePayment(
       txHash,
     });
     console.log(`[Agent] Session ${session.id}: sent ${amount} ${coinSymbol} to @${cleanRecipient}`);
-    if (session.notificationPrefs?.onRuleExecution !== false) {
+    if (session.notificationPrefs?.onRuleExecution !== false && sphere) {
       await sendNotification(sphere, session, 'Rule Executed', `${rule.name}: sent ${fmtHuman(amount, coinSymbol)} ${coinSymbol} → @${cleanRecipient}`);
     }
-  } catch (err: any) {
-    console.error(`[Agent] Session ${session.id}: payment to @${cleanRecipient} failed:`, err?.message);
+  } else {
+    console.error(`[Agent] Session ${session.id}: payment to @${cleanRecipient} failed:`, result.message);
     session.executionLogs.push({
       id: logId,
       timestamp: ts,
@@ -468,10 +542,10 @@ async function executePayment(
       coinSymbol,
       recipient: cleanRecipient ? '@' + cleanRecipient : null,
       status: 'failed',
-      detail: `Failed: ${err?.message || 'Unknown error'}`,
+      detail: `Failed: ${result.message}`,
     });
-    if (session.notificationPrefs?.onError !== false) {
-      await sendNotification(sphere, session, 'Rule Failed', `${rule.name}: payment of ${fmtHuman(amount, coinSymbol)} ${coinSymbol} to @${cleanRecipient} failed — ${err?.message || 'Unknown error'}`);
+    if (session.notificationPrefs?.onError !== false && sphere) {
+      await sendNotification(sphere, session, 'Rule Failed', `${rule.name}: payment of ${fmtHuman(amount, coinSymbol)} ${coinSymbol} to @${cleanRecipient} failed — ${result.message}`);
     }
   }
 }

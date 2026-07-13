@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { getCoinIdBySymbol, toHumanReadable } from '@unicitylabs/sphere-sdk';
 import { env } from '../config.js';
-import { createUserSession, loadSession, loadSessionDB, saveSession, listSessions, refreshSessionBalance, processSessionRules, setUserNametag, parseCron, toSmallestUnits, findSessionByMnemonic, importWallet, KNOWN_COINS, COIN_DECIMALS, openSessionWallet, openSessionWalletDirect, DEFAULT_NOTIFICATION_PREFS } from '../session-manager.js';
+import { createUserSession, loadSession, loadSessionDB, saveSession, listSessions, refreshSessionBalance, processSessionRules, setUserNametag, parseCron, toSmallestUnits, findSessionByMnemonic, importWallet, sendPayment, KNOWN_COINS, COIN_DECIMALS, openSessionWallet, openSessionWalletDirect, DEFAULT_NOTIFICATION_PREFS } from '../session-manager.js';
 import type { NotificationPrefs } from '../session-manager.js';
 
 // Hardcoded coin IDs for testnet2 (from the token registry — avoids SDK lazy-load issue)
@@ -262,42 +262,41 @@ app.post('/api/rules', async (req, res) => {
   // ─── Fire immediately for payment-type rules ───
   if (['recurring', 'dca', 'sweep', 'multi-pay'].includes(type)) {
     try {
-      const sphere = await openSessionWalletDirect(session);
-      if (sphere) {
-        let execTxHash = '';
-        if (type === 'multi-pay' && rule.recipients) {
-          let rcps: Array<{r: string; a: string}> = [];
-          try { rcps = JSON.parse(rule.recipients); } catch {}
-          for (const rcp of rcps.slice(0, 10)) {
-            const coinId = getCoinIdBySymbol(rule.coinSymbol || 'UCT');
-            if (!coinId) continue;
-            const amtSm = toSmallestUnits(rcp.a, rule.coinSymbol || 'UCT');
-            const result = await sphere.payments.send({ coinId, amount: amtSm, recipient: rcp.r, memo: `First run: ${rule.name}` });
-            if (!execTxHash) execTxHash = result.tokenTransfers?.find((t: any) => t.requestIdHex)?.requestIdHex || '';
-          }
-        } else if (rule.recipient && rule.amount) {
-          const coinId = getCoinIdBySymbol(rule.coinSymbol || 'UCT');
-          if (coinId) {
-            const result = await sphere.payments.send({ coinId, amount: rule.amount, recipient: rule.recipient, memo: `First run: ${rule.name}` });
-            execTxHash = result.tokenTransfers?.find((t: any) => t.requestIdHex)?.requestIdHex || '';
-          }
+      let execTxHash = '';
+      let status = 'confirmed';
+      let detailSuffix = '';
+      if (type === 'multi-pay' && rule.recipients) {
+        let rcps: Array<{r: string; a: string}> = [];
+        try { rcps = JSON.parse(rule.recipients); } catch {}
+        for (const rcp of rcps.slice(0, 10)) {
+          const amtSm = toSmallestUnits(rcp.a, rule.coinSymbol || 'UCT');
+          const result = await sendPayment(session, rcp.r, amtSm, rule.coinSymbol || 'UCT', `First run: ${rule.name}`);
+          if (result.ok && result.txHash && !execTxHash) execTxHash = result.txHash;
+          if (!result.ok) { status = 'failed'; detailSuffix = ` — ${result.message}`; }
         }
-        rule.lastRunAt = new Date().toISOString();
-        session.transactions.push({
-          id: crypto.randomUUID(),
-          type: 'send',
-          amount: rule.amount || '',
-          status: 'confirmed',
-          txHash: execTxHash || undefined,
-          counterparty: rule.recipient || null,
-          coinSymbol: rule.coinSymbol || 'UCT',
-          timestamp: new Date().toISOString(),
-          detail: `⚡ First execution: ${rule.name}${execTxHash ? ' tx:' + execTxHash.slice(0, 12) : ''}`,
-        });
-        saveSession(session);
-        await sphere.destroy();
-        console.log(`[API] Rule "${rule.name}" fired immediately on creation`);
+      } else if (rule.recipient && rule.amount) {
+        const result = await sendPayment(session, rule.recipient, rule.amount, rule.coinSymbol || 'UCT', `First run: ${rule.name}`);
+        if (result.ok) {
+          execTxHash = result.txHash || '';
+        } else {
+          status = 'failed';
+          detailSuffix = ` — ${result.message}`;
+        }
       }
+      rule.lastRunAt = new Date().toISOString();
+      session.transactions.push({
+        id: crypto.randomUUID(),
+        type: 'send',
+        amount: rule.amount || '',
+        status,
+        txHash: execTxHash || undefined,
+        counterparty: rule.recipient || null,
+        coinSymbol: rule.coinSymbol || 'UCT',
+        timestamp: new Date().toISOString(),
+        detail: `⚡ First execution: ${rule.name}${execTxHash ? ' tx:' + execTxHash.slice(0, 12) : ''}${detailSuffix}`,
+      });
+      saveSession(session);
+      console.log(`[API] Rule "${rule.name}" fired immediately on creation`);
     } catch (err: any) {
       console.error(`[API] Immediate rule execution failed:`, err?.message);
     }
@@ -340,7 +339,7 @@ app.post('/api/refresh', async (req, res) => {
   res.json({ balance, balances: session.balances, lastChecked: session.lastChecked });
 });
 
-/** Send a tip from the agent wallet to another user (async — returns immediately, processes in background) */
+/** Send a tip from the agent wallet to another user (sync — returns real send result) */
 app.post('/api/tip', async (req, res) => {
   const session = getSession(req, res);
   if (!session) return;
@@ -351,62 +350,54 @@ app.post('/api/tip', async (req, res) => {
   }
 
   const coin = (coinSymbol || 'UCT').toUpperCase();
-  const coinId = COIN_ID_MAP[coin];
-  if (!coinId) return res.status(400).json({ error: `Unsupported coin: ${coin}` });
+  if (!KNOWN_COINS.includes(coin as any)) {
+    return res.status(400).json({ error: `Unsupported coin: ${coin}` });
+  }
 
   const amtSmallest = toSmallestUnits(String(amount), coin);
+  const memo = message ? `Tip: ${message}` : 'Tip from treasury agent';
 
-  // Acknowledge immediately — payment processes in background
-  res.json({ status: 'processing', amount, coin, recipient, message: 'Tip is being sent. Check Activity for confirmation.' });
+  const result = await sendPayment(session, recipient, amtSmallest, coin, memo);
 
-  // Background send
-  try {
-    const sphere = await openSessionWalletDirect(session);
-    if (!sphere) { console.error('[Tip] Failed to open wallet'); return; }
-
-    // Receive pending tokens first so the engine knows what we have
-    try { await sphere.payments.receive(); } catch { /* ok */ }
-
-    const result = await sphere.payments.send({
-      coinId,
-      amount: amtSmallest,
-      recipient,
-      memo: message ? `Tip: ${message}` : 'Tip from treasury agent',
-    });
-
-    const txHash = result.tokenTransfers?.find((t: any) => t.requestIdHex)?.requestIdHex;
-
-    try {
-      await sphere.communications.sendDM(recipient, `💡 You received a tip of ${amount} ${coin} from @${session.nametag || session.id.slice(0, 8)}${message ? ': ' + message : ''}`);
-    } catch { /* non-critical */ }
-
-    session.transactions.push({
-      id: result.id,
+  if (result.ok) {
+    const tx = {
+      id: crypto.randomUUID(),
       type: 'tip',
       amount: amtSmallest,
-      status: String(result.status),
-      txHash,
+      status: result.status,
+      txHash: result.txHash,
       counterparty: recipient,
       coinSymbol: coin,
       timestamp: new Date().toISOString(),
       detail: `💡 Tip ${amount} ${coin} to ${recipient}${message ? ': ' + message : ''}`,
-    });
+    };
+    session.transactions.push(tx);
     saveSession(session);
-    console.log(`[Tip] Sent ${amount} ${coin} to ${recipient} — tx:${txHash?.slice(0, 12) || 'pending'}`);
-    await Promise.race([sphere.destroy(), new Promise(r => setTimeout(r, 5000))]);
-  } catch (err: any) {
-    console.error('[Tip] Background send failed:', err?.message);
-    // Log failed attempt
-    session.transactions.push({
-      id: crypto.randomUUID(),
-      type: 'tip_failed',
-      amount: amtSmallest,
-      status: 'failed',
-      timestamp: new Date().toISOString(),
-      detail: `💔 Tip ${amount} ${coin} to ${recipient} failed: ${err?.message || 'Unknown'}`,
+    return res.json({
+      id: tx.id,
+      status: result.status,
+      amount,
+      coin,
+      recipient,
+      txHash: result.txHash,
+      deliveryPending: result.deliveryPending,
+      message: result.message,
     });
-    saveSession(session);
   }
+
+  // Log the failure and surface the exact reason.
+  session.transactions.push({
+    id: crypto.randomUUID(),
+    type: 'tip_failed',
+    amount: amtSmallest,
+    status: 'failed',
+    counterparty: recipient,
+    coinSymbol: coin,
+    timestamp: new Date().toISOString(),
+    detail: `💔 Tip ${amount} ${coin} to ${recipient} failed: ${result.message}`,
+  });
+  saveSession(session);
+  res.status(422).json({ error: result.message });
 });
 
 /** Register a human-readable @nametag for the user's wallet */
