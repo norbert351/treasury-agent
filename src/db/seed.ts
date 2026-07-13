@@ -36,11 +36,11 @@ async function seed() {
     updated_at TIMESTAMPTZ DEFAULT NOW()
   )`;
 
-  // Insert or update
+  // Insert or update — pass JS object, NOT JSON.stringify (postgres lib handles JSONB)
   await sql`
     INSERT INTO sessions (id, data, updated_at)
-    VALUES (${SESSION_ID}, ${JSON.stringify(data)}, NOW())
-    ON CONFLICT (id) DO UPDATE SET data = ${JSON.stringify(data)}, updated_at = NOW()
+    VALUES (${SESSION_ID}, ${sql.json(data)}, NOW())
+    ON CONFLICT (id) DO UPDATE SET data = ${sql.json(data)}, updated_at = NOW()
   `;
 
   console.log('Session seeded to DB successfully!');
