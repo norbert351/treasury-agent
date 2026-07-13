@@ -1,5 +1,6 @@
 /**
- * Auto-migrate DB schema on startup via drizzle-kit push.
+ * Auto-create DB tables on startup using raw SQL.
+ * Faster and more reliable than drizzle-kit push in production.
  */
 import { env } from '../config.js';
 
@@ -9,15 +10,22 @@ async function migrate() {
     return;
   }
   try {
-    const { execSync } = await import('child_process');
-    execSync('npx drizzle-kit push', { 
-      stdio: 'inherit', 
-      env: { ...process.env, DATABASE_URL: env.DATABASE_URL } 
-    });
-    console.log('[DB] Schema push complete');
+    const postgres = (await import('postgres')).default;
+    const sql = postgres(env.DATABASE_URL, { max: 1 });
+
+    await sql`CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      data JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`;
+
+    await sql.end({ timeout: 3 });
+    console.log('[DB] Tables ready');
   } catch (e: any) {
-    console.error('[DB] Migration failed:', e?.message?.slice(0, 150));
+    console.error('[DB] Migration error:', e?.message?.slice(0, 100));
+    console.log('[DB] Falling back to file storage');
   }
 }
 
-migrate().catch(() => {});
+migrate().catch(() => console.warn('[DB] Migration skipped'));
