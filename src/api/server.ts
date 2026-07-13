@@ -135,6 +135,39 @@ app.post('/api/agent/recover', async (req, res) => {
   });
 });
 
+/** Refresh wallet balance from the network (receive pending tokens) */
+app.post('/api/agent/refresh', async (req, res) => {
+  const session = getSession(req, res);
+  if (!session) return;
+
+  try {
+    const sphere = await openSessionWallet(session);
+    if (!sphere) return res.status(500).json({ error: 'Failed to open wallet' });
+
+    // Receive pending tokens
+    try { await sphere.payments.receive(); } catch { /* no pending */ }
+
+    // Refresh balances
+    for (const sym of KNOWN_COINS) {
+      const id = getCoinIdBySymbol(sym);
+      if (!id) continue;
+      const assets = sphere.payments.getBalance(id);
+      const coin = assets?.find((a: any) => a.coinId === id);
+      session.balances[sym] = coin?.totalAmount ?? '0';
+    }
+    session.balance = session.balances['UCT'] || '0';
+    session.lastChecked = new Date().toISOString();
+    saveSession(session);
+
+    await Promise.race([sphere.destroy(), new Promise(r => setTimeout(r, 5000))]);
+
+    res.json({ balance: session.balance, balances: session.balances, lastChecked: session.lastChecked });
+  } catch (e: any) {
+    console.error('[API] Refresh error:', e?.stack || e);
+    res.status(500).json({ error: e?.message || 'Refresh failed' });
+  }
+});
+
 // ─── Session-scoped endpoints ───
 
 app.get('/api/balance', (req, res) => {
