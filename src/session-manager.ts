@@ -852,7 +852,9 @@ export async function importWallet(mnemonic: string): Promise<UserSession | null
   if (existing) return loadSession(existing);
 
   // Create new session with this mnemonic
-  const id = crypto.randomUUID();
+  // Deterministic session ID from mnemonic so re-imports get same session
+  const hash = crypto.createHash('sha256').update(clean).digest('hex');
+  const id = hash.slice(0, 8) + '-' + hash.slice(8, 12) + '-' + hash.slice(12, 16) + '-' + hash.slice(16, 20) + '-' + hash.slice(20, 32);
   const dataDir = sessionPath(id);
   try {
     if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
