@@ -952,6 +952,8 @@ export async function openSessionWalletDirect(session: UserSession): Promise<Sph
       network: env.UNICITY_NETWORK as any,
       mnemonic: session.mnemonic || undefined,
       autoGenerate: false,
+      swap: true,
+      accounting: true,
     });
     return sphere;
   } catch (err) {
