@@ -52,6 +52,22 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'treasury-manager', sessions: listSessions().length });
 });
 
+/** Return the default agent session token if AGENT_MNEMONIC is configured */
+app.get('/api/agent/default-token', (_req, res) => {
+  if (env.AGENT_MNEMONIC) {
+    const id = findSessionByMnemonic(env.AGENT_MNEMONIC);
+    if (id) return res.json({ token: id, configured: true });
+    // Try to import
+    importWallet(env.AGENT_MNEMONIC).then(session => {
+      if (session) {
+        console.log(`[API] Auto-imported agent: ${session.id.slice(0, 8)}`);
+      }
+    }).catch(() => {});
+    return res.json({ configured: true, token: null, message: 'Import in progress, try again' });
+  }
+  res.json({ configured: false });
+});
+
 /** Create a new agent wallet for a user */
 app.post('/api/agent/create', async (_req, res) => {
   try {

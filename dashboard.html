@@ -1295,11 +1295,21 @@ function toggleDmField() {
 
 // ─── Auto-login ───
 (async function init() {
+  // Check stored token first
   const token = localStorage.getItem(SESSION_KEY);
   if (token) {
     try { const res = await api('/api/agent/load', { method: 'POST' }).then(r => r.json()); if (res.address) return enterDashboard(res); } catch {}
     localStorage.removeItem(SESSION_KEY);
   }
+  // Check if server has a pre-configured agent wallet
+  try {
+    const def = await api('/api/agent/default-token').then(r => r.json());
+    if (def.configured && def.token) {
+      localStorage.setItem(SESSION_KEY, def.token);
+      const res = await api('/api/agent/load', { method: 'POST' }).then(r => r.json());
+      if (res.address) return enterDashboard(res);
+    }
+  } catch {}
 })();
 </script>
 </body>
