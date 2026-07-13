@@ -235,7 +235,7 @@ export async function createUserSession(): Promise<UserSession | null> {
     const providers = createWalletApiProviders(base, {
       baseUrl: 'https://wallet-api.unicity.network',
       network: env.UNICITY_NETWORK,
-      deviceId: `treasury-agent-${id.slice(0, 8)}`,
+      deviceId: 'treasury-agent-' + id.slice(0, 8),
     });
 
     const { sphere, created, generatedMnemonic } = await Sphere.init({
@@ -248,7 +248,7 @@ export async function createUserSession(): Promise<UserSession | null> {
 
     if (!created || !generatedMnemonic) {
       // Wallet already existed in this dir — load it
-      console.log(`[Session] Loaded existing wallet for session ${id}`);
+      console.log('[Session] Loaded existing wallet for session ' + id);
     }
 
     const session: UserSession = {
@@ -288,10 +288,10 @@ export async function createUserSession(): Promise<UserSession | null> {
       sphere.destroy(),
       new Promise(r => setTimeout(r, 5000)),
     ]);
-    console.log(`[Session] Created session ${id} → ${session.address}`);
+    console.log('[Session] Created session ' + id + ' → ' + session.address);
     return session;
   } catch (err) {
-    console.error(`[Session] Failed to create session ${id}:`, err);
+    console.error('[Session] Failed to create session ' + id + ':', err);
     return null;
   }
 }
@@ -312,7 +312,7 @@ export async function openSessionWallet(session: UserSession): Promise<Sphere | 
     const providers = createWalletApiProviders(base, {
       baseUrl: 'https://wallet-api.unicity.network',
       network: env.UNICITY_NETWORK,
-      deviceId: `treasury-agent-${session.id.slice(0, 8)}`,
+      deviceId: 'treasury-agent-' + session.id.slice(0, 8),
     });
 
     const { sphere } = await Sphere.init({
@@ -326,7 +326,7 @@ export async function openSessionWallet(session: UserSession): Promise<Sphere | 
 
     return sphere;
   } catch (err) {
-    console.error(`[Session] Failed to open wallet for ${session.id}:`, err);
+    console.error('[Session] Failed to open wallet for ' + session.id + ':', err);
     return null;
   }
 }
@@ -371,15 +371,15 @@ async function sendNotification(
   message: string,
 ): Promise<void> {
   const prefs = session.notificationPrefs || DEFAULT_NOTIFICATION_PREFS;
-  const fullMsg = `[${title}] ${message}`;
+  const fullMsg = '[' + title + '] ' + message;
 
   // Sphere DM
   if (prefs.dmEnabled && prefs.dmRecipient && sphere) {
     try {
       await sphere.communications.sendDM(prefs.dmRecipient, fullMsg);
-      console.log(`[Notify] DM sent to ${prefs.dmRecipient}: ${title}`);
+      console.log('[Notify] DM sent to ' + prefs.dmRecipient + ': ' + title);
     } catch (err: any) {
-      console.error(`[Notify] DM failed:`, err?.message);
+      console.error('[Notify] DM failed:', err?.message);
     }
   }
 
@@ -396,9 +396,9 @@ async function sendNotification(
           timestamp: new Date().toISOString(),
         }),
       });
-      console.log(`[Notify] Webhook POSTed to ${prefs.webhookUrl.slice(0, 40)}...`);
+      console.log('[Notify] Webhook POSTed to ' + prefs.webhookUrl.slice(0, 40) + '...');
     } catch (err: any) {
-      console.error(`[Notify] Webhook failed:`, err?.message);
+      console.error('[Notify] Webhook failed:', err?.message);
     }
   }
 }
@@ -406,7 +406,7 @@ async function sendNotification(
 /**
  * Robust payment helper: opens the wallet-api-enabled wallet, resumes open intents,
  * receives pending transfers, checks the live balance, then sends.
- * If `existingSphere` is passed, it is reused (caller handles lifecycle).
+ * If existingSphere is passed, it is reused (caller handles lifecycle).
  * Returns { ok, status, txHash, message } and never throws.
  */
 export async function sendPayment(
@@ -439,14 +439,14 @@ export async function sendPayment(
     const asset = assets.find((a: any) => (a.symbol || '').toUpperCase() === coinSymbol.toUpperCase());
     const available = asset?.totalAmount || '0';
     if (BigInt(available) < BigInt(amount)) {
-      return { ok: false, status: 'failed', message: `Insufficient balance: have ${fmtHuman(available, coinSymbol)} ${coinSymbol}, need ${fmtHuman(amount, coinSymbol)} ${coinSymbol}` };
+      return { ok: false, status: 'failed', message: 'Insufficient balance: have ' + fmtHuman(available, coinSymbol) + ' ' + coinSymbol + ', need ' + fmtHuman(amount, coinSymbol) + ' ' + coinSymbol };
     }
 
     const result = await sphere.payments.send({
       coinId,
       amount,
       recipient: cleanRecipient,
-      memo: memo || `Payment from ${session.nametag || session.id.slice(0, 8)}`,
+      memo: memo || 'Payment from ' + (session.nametag || session.id.slice(0, 8)),
     });
 
     const txHash = result.tokenTransfers?.find((t: any) => t.requestIdHex)?.requestIdHex;
@@ -469,8 +469,8 @@ export async function sendPayment(
       status: result.status,
       txHash,
       message: result.deliveryPending
-        ? `Sent ${fmtHuman(amount, coinSymbol)} ${coinSymbol} — delivery pending`
-        : `Sent ${fmtHuman(amount, coinSymbol)} ${coinSymbol}`,
+        ? 'Sent ' + fmtHuman(amount, coinSymbol) + ' ' + coinSymbol + ' — delivery pending'
+        : 'Sent ' + fmtHuman(amount, coinSymbol) + ' ' + coinSymbol,
       deliveryPending: result.deliveryPending,
     };
   } catch (err: any) {
@@ -502,7 +502,7 @@ async function executePayment(
   const logId = crypto.randomUUID();
   const ts = new Date().toISOString();
 
-  const result = await sendPayment(session, cleanRecipient, amount, coinSymbol, `Recurring: ${rule.name}`, sphere);
+  const result = await sendPayment(session, cleanRecipient, amount, coinSymbol, 'Recurring: ' + rule.name, sphere);
 
   if (result.ok) {
     rule.lastRunAt = ts;
@@ -516,7 +516,7 @@ async function executePayment(
       counterparty: cleanRecipient ? '@' + cleanRecipient : null,
       coinSymbol,
       timestamp: ts,
-      detail: `To @${cleanRecipient}: ${rule.name} (${coinSymbol})`,
+      detail: 'To @' + cleanRecipient + ': ' + rule.name + ' (' + coinSymbol + ')',
     });
     session.executionLogs.push({
       id: logId,
@@ -528,15 +528,15 @@ async function executePayment(
       coinSymbol,
       recipient: cleanRecipient ? '@' + cleanRecipient : null,
       status: 'success',
-      detail: `Sent ${fmtHuman(amount, coinSymbol)} ${coinSymbol} → @${cleanRecipient}`,
+      detail: 'Sent ' + fmtHuman(amount, coinSymbol) + ' ' + coinSymbol + ' → @' + cleanRecipient,
       txHash,
     });
-    console.log(`[Agent] Session ${session.id}: sent ${amount} ${coinSymbol} to @${cleanRecipient}`);
+    console.log('[Agent] Session ' + session.id + ': sent ' + amount + ' ' + coinSymbol + ' to @' + cleanRecipient);
     if (session.notificationPrefs?.onRuleExecution !== false && sphere) {
-      await sendNotification(sphere, session, 'Rule Executed', `${rule.name}: sent ${fmtHuman(amount, coinSymbol)} ${coinSymbol} → @${cleanRecipient}`);
+      await sendNotification(sphere, session, 'Rule Executed', rule.name + ': sent ' + fmtHuman(amount, coinSymbol) + ' ' + coinSymbol + ' → @' + cleanRecipient);
     }
   } else {
-    console.error(`[Agent] Session ${session.id}: payment to @${cleanRecipient} failed:`, result.message);
+    console.error('[Agent] Session ' + session.id + ': payment to @' + cleanRecipient + ' failed:', result.message);
     session.executionLogs.push({
       id: logId,
       timestamp: ts,
@@ -547,17 +547,17 @@ async function executePayment(
       coinSymbol,
       recipient: cleanRecipient ? '@' + cleanRecipient : null,
       status: 'failed',
-      detail: `Failed: ${result.message}`,
+      detail: 'Failed: ' + result.message,
     });
     if (session.notificationPrefs?.onError !== false && sphere) {
-      await sendNotification(sphere, session, 'Rule Failed', `${rule.name}: payment of ${fmtHuman(amount, coinSymbol)} ${coinSymbol} to @${cleanRecipient} failed — ${result.message}`);
+      await sendNotification(sphere, session, 'Rule Failed', rule.name + ': payment of ' + fmtHuman(amount, coinSymbol) + ' ' + coinSymbol + ' to @' + cleanRecipient + ' failed — ' + result.message);
     }
   }
 }
 
 /**
  * Determine whether a cron rule should fire now.
- * Handles standard 5-field cron plus `*/N` minute steps. Returns { shouldFire, scheduleTime }.
+ * Handles standard 5-field cron plus star-slash-N minute steps. Returns { shouldFire, scheduleTime }.
  */
 function isCronDue(cron: string, lastRunAt: string | null, now = new Date()): { shouldFire: boolean; scheduleTime: Date } {
   const parts = cron.trim().split(/\s+/);
@@ -603,10 +603,10 @@ async function fireWithTimeout(
   try {
     await Promise.race([
       fn(),
-      new Promise<void>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(label + ' timeout')), timeoutMs)),
     ]);
   } catch (err: any) {
-    console.error(`[Agent] ${label} timed out:`, err?.message);
+    console.error('[Agent] ' + label + ' timed out:', err?.message);
   }
 }
 
@@ -672,7 +672,7 @@ export async function processSessionRules(session: UserSession): Promise<void> {
           counterparty: match?.sender || null,
           coinSymbol: sym,
           timestamp: now,
-          detail: `📥 Received ${fmtHuman(diff, sym)} ${sym}${match?.sender ? ' from ' + match.sender : ''}`,
+          detail: '📥 Received ' + fmtHuman(diff, sym) + ' ' + sym + (match?.sender ? ' from ' + match.sender : ''),
         });
         session.executionLogs.push({
           id: crypto.randomUUID(),
@@ -684,7 +684,7 @@ export async function processSessionRules(session: UserSession): Promise<void> {
           coinSymbol: sym,
           recipient: null,
           status: 'info',
-          detail: `📥 Received ${fmtHuman(diff, sym)} ${sym}`,
+          detail: '📥 Received ' + fmtHuman(diff, sym) + ' ' + sym,
         });
         // Notify if onDeposit pref is enabled (default true)
         if (session.notificationPrefs?.onDeposit !== false) {
@@ -692,7 +692,7 @@ export async function processSessionRules(session: UserSession): Promise<void> {
           const alreadyNotified = session.lastReceivedAt &&
             oldBals[sym] === '0' && session.lastReceivedAt === now;
           if (!alreadyNotified) {
-            await sendNotification(sphere, session, 'Deposit Received', `📥 ${fmtHuman(diff, sym)} ${sym} arrived in your wallet`);
+            await sendNotification(sphere, session, 'Deposit Received', '📥 ' + fmtHuman(diff, sym) + ' ' + sym + ' arrived in your wallet');
           }
         }
       }
@@ -713,14 +713,14 @@ export async function processSessionRules(session: UserSession): Promise<void> {
         const { shouldFire, scheduleTime } = isCronDue(rule.cron, rule.lastRunAt, now);
         if (!shouldFire) continue;
 
-        console.log(`[Agent] Firing rule "${rule.name}": sched=${scheduleTime.toISOString()} lastRun=${rule.lastRunAt}`);
+        console.log('[Agent] Firing rule "' + rule.name + '": sched=' + scheduleTime.toISOString() + ' lastRun=' + rule.lastRunAt);
 
         if (rule.type === 'multi-pay' && rule.recipients) {
           let recipients: Array<{r: string; a: string}> = [];
           try { recipients = JSON.parse(rule.recipients); } catch {}
           for (const rcp of recipients.slice(0, 10)) {
             const amtSmallest = toSmallestUnits(rcp.a, coinSymbol);
-            await fireWithTimeout(() => executePayment(sphere, session, rule, coinId, rcp.r, amtSmallest, coinSymbol), 60000, `multi-pay ${rule.name}`);
+            await fireWithTimeout(() => executePayment(sphere, session, rule, coinId, rcp.r, amtSmallest, coinSymbol), 60000, 'multi-pay ' + rule.name);
           }
         } else if (rule.type === 'sweep' && rule.recipient && rule.minBalance) {
           const coinBal = session.balances[coinSymbol] || '0';
@@ -728,11 +728,11 @@ export async function processSessionRules(session: UserSession): Promise<void> {
           const current = BigInt(coinBal || '0');
           if (current > min) {
             const excess = (current - min).toString();
-            await fireWithTimeout(() => executePayment(sphere, session, rule, coinId, rule.recipient, excess, coinSymbol), 60000, `sweep ${rule.name}`);
+            await fireWithTimeout(() => executePayment(sphere, session, rule, coinId, rule.recipient, excess, coinSymbol), 60000, 'sweep ' + rule.name);
           }
         } else if (rule.recipient && rule.amount) {
           // recurring / dca
-          await fireWithTimeout(() => executePayment(sphere, session, rule, coinId, rule.recipient, rule.amount, coinSymbol), 60000, `recurring ${rule.name}`);
+          await fireWithTimeout(() => executePayment(sphere, session, rule, coinId, rule.recipient, rule.amount, coinSymbol), 60000, 'recurring ' + rule.name);
         }
         continue;
       }
@@ -750,7 +750,7 @@ export async function processSessionRules(session: UserSession): Promise<void> {
             status: 'alert',
             coinSymbol,
             timestamp: ts,
-            detail: `${coinSymbol} balance ${coinBal} below threshold ${rule.minBalance}`,
+            detail: coinSymbol + ' balance ' + coinBal + ' below threshold ' + rule.minBalance,
           });
           session.executionLogs.push({
             id: crypto.randomUUID(),
@@ -762,17 +762,17 @@ export async function processSessionRules(session: UserSession): Promise<void> {
             coinSymbol,
             recipient: null,
             status: 'info',
-            detail: `⚠️ ${fmtHuman(coinBal, coinSymbol)} ${coinSymbol} below threshold`,
+            detail: '⚠️ ' + fmtHuman(coinBal, coinSymbol) + ' ' + coinSymbol + ' below threshold',
           });
           if (session.notificationPrefs?.onThreshold !== false) {
-            await sendNotification(sphere, session, 'Threshold Alert', `${rule.name}: ${fmtHuman(coinBal, coinSymbol)} ${coinSymbol} below min ${fmtHuman(rule.minBalance, coinSymbol)}`);
+            await sendNotification(sphere, session, 'Threshold Alert', rule.name + ': ' + fmtHuman(coinBal, coinSymbol) + ' ' + coinSymbol + ' below min ' + fmtHuman(rule.minBalance, coinSymbol));
           }
         }
       }
     }
 
-    // ─── Atomic save: reload session to preserve any API-side changes ───
-    // The agent loaded `session` at cycle start. The user may have created
+    // --- Atomic save: reload session to preserve any API-side changes ---
+    // The agent loaded session at cycle start. The user may have created
     // rules via the dashboard in the meantime. Re-read the latest from disk,
     // forward-port the balance + cycle data, then write back.
     const fresh = loadSession(session.id);
@@ -801,11 +801,11 @@ export async function processSessionRules(session: UserSession): Promise<void> {
       saveSession(session);
     }
 
-    // ─── Forward incoming DMs to the owner ───
+    // --- Forward incoming DMs to the owner ---
     const prefs = session.notificationPrefs || DEFAULT_NOTIFICATION_PREFS;
     if (prefs.dmEnabled && prefs.dmRecipient && sphere && sphere.communications) {
       try {
-        console.log(`[Agent] Checking DMs for ${session.id.slice(0, 8)}...`);
+        console.log('[Agent] Checking DMs for ' + session.id.slice(0, 8) + '...');
         const convs = sphere.communications.getConversations();
         if (!convs) {
           console.log('[Agent] No conversations (null)');
@@ -825,22 +825,22 @@ export async function processSessionRules(session: UserSession): Promise<void> {
               // Forward any message newer than last check (read or unread)
               if (ts > lastChecked) {
                 const sender = msg.senderNametag || msg.senderPubkey?.slice(0, 16) || peer.slice(0, 16);
-                sphere!.communications.sendDM(prefs.dmRecipient, `📨 DM from ${sender}: ${msg.content}`).catch(() => {});
+                sphere!.communications.sendDM(prefs.dmRecipient, '📨 DM from ' + sender + ': ' + msg.content).catch(() => {});
                 if (!session.forwardedMessages) session.forwardedMessages = [];
                 session.forwardedMessages.push({ id: msg.id || crypto.randomUUID(), from: sender, content: msg.content, timestamp: ts, read: false });
                 if (msg.id) sphere!.communications.markAsRead([msg.id]).catch(() => {});
                 forwarded++;
-                console.log(`[Agent] Forwarded DM from ${sender} → ${prefs.dmRecipient}: "${msg.content.slice(0, 60)}"`);
+                console.log('[Agent] Forwarded DM from ' + sender + ' → ' + prefs.dmRecipient + ': "' + msg.content.slice(0, 60) + '"');
               }
             }
           });
           session.lastMsgCheckedAt = nowMs;
-          console.log(`[Agent] DM check: ${total} msgs, ${forwarded} forwarded`);
+          console.log('[Agent] DM check: ' + total + ' msgs, ' + forwarded + ' forwarded');
           const f2 = loadSession(session.id);
           if (f2) { f2.lastMsgCheckedAt = nowMs; f2.forwardedMessages = session.forwardedMessages; saveSession(f2); }
         }
       } catch (err: any) {
-        console.warn(`[Agent] DM forwarding:`, err?.message || err);
+        console.warn('[Agent] DM forwarding:', err?.message || err);
       }
     }
   } finally {
@@ -902,7 +902,7 @@ export async function importWallet(mnemonic: string): Promise<UserSession | null
     const providers = createWalletApiProviders(base, {
       baseUrl: 'https://wallet-api.unicity.network',
       network: env.UNICITY_NETWORK,
-      deviceId: `treasury-agent-${id.slice(0, 8)}`,
+      deviceId: 'treasury-agent-' + id.slice(0, 8),
     });
     const { sphere, created } = await Sphere.init({
       ...providers,
@@ -947,10 +947,10 @@ export async function importWallet(mnemonic: string): Promise<UserSession | null
       sphere.destroy(),
       new Promise(r => setTimeout(r, 5000)),
     ]);
-    console.log(`[Session] Imported wallet for session ${id} → ${session.address}`);
+    console.log('[Session] Imported wallet for session ' + id + ' → ' + session.address);
     return session;
   } catch (err) {
-    console.error(`[Session] Failed to import wallet:`, err);
+    console.error('[Session] Failed to import wallet:', err);
     return null;
   }
 }
@@ -977,7 +977,7 @@ export async function openSessionWalletDirect(session: UserSession): Promise<Sph
     });
     return sphere;
   } catch (err) {
-    console.error(`[Session] Failed to open direct wallet for ${session.id}:`, err);
+    console.error('[Session] Failed to open direct wallet for ' + session.id + ':', err);
     return null;
   }
 }
@@ -998,19 +998,19 @@ export async function setUserNametag(session: UserSession, nametag: string): Pro
     // Check availability
     const available = await sphere.isNametagAvailable(clean);
     if (!available) {
-      console.warn(`[Session] Nametag @${clean} is taken`);
+      console.warn('[Session] Nametag @' + clean + ' is taken');
       return null;
     }
 
     await sphere.registerNametag(clean);
     session.nametag = clean;
-    session.address = `@${clean}`;
+    session.address = '@' + clean;
     saveSession(session);
 
-    console.log(`[Session] Registered @${clean} for session ${session.id}`);
-    return { nametag: clean, address: `@${clean}` };
+    console.log('[Session] Registered @' + clean + ' for session ' + session.id);
+    return { nametag: clean, address: '@' + clean };
   } catch (err: any) {
-    console.error(`[Session] Failed to register @${clean}:`, err?.message);
+    console.error('[Session] Failed to register @' + clean + ':', err?.message);
     return null;
   } finally {
     await Promise.race([sphere.destroy(), new Promise(r => setTimeout(r, 5000))]);
