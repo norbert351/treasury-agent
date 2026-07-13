@@ -356,7 +356,7 @@ export async function refreshSessionBalance(session: UserSession): Promise<strin
   } catch {
     return session.balance;
   } finally {
-    await sphere.destroy();
+    await Promise.race([sphere.destroy(), new Promise(r => setTimeout(r, 5000))]);
   }
 }
 
@@ -825,15 +825,10 @@ export async function processSessionRules(session: UserSession): Promise<void> {
       }
     }
   } finally {
-    await sphere.destroy();
+    await Promise.race([sphere.destroy(), new Promise(r => setTimeout(r, 5000))]);
   }
 }
 
-/**
- * Find a session by its mnemonic/seed phrase.
- * Normalizes both sides (trim, collapse whitespace) before comparing.
- * Returns the session ID or null if not found.
- */
 export function findSessionByMnemonic(mnemonic: string): string | null {
   const needle = mnemonic.trim().replace(/\s+/g, ' ').toLowerCase();
   for (const id of listSessions()) {
@@ -978,6 +973,6 @@ export async function setUserNametag(session: UserSession, nametag: string): Pro
     console.error(`[Session] Failed to register @${clean}:`, err?.message);
     return null;
   } finally {
-    await sphere.destroy();
+    await Promise.race([sphere.destroy(), new Promise(r => setTimeout(r, 5000))]);
   }
 }
