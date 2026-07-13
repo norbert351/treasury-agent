@@ -195,8 +195,8 @@ async function saveSessionDB(session: UserSession): Promise<void> {
   await sql`INSERT INTO sessions (id, data, updated_at) VALUES (${session.id}, ${sql.json(session)}, NOW()) ON CONFLICT (id) DO UPDATE SET data = ${sql.json(session)}, updated_at = NOW()`;
 }
 
-/** Async DB-only load — used by importWallet */
-async function loadSessionDB(id: string): Promise<UserSession | null> {
+/** Async DB-only load — used by importWallet and recover endpoint */
+export async function loadSessionDB(id: string): Promise<UserSession | null> {
   const rows = await sql`SELECT data FROM sessions WHERE id = ${id}`;
   if (rows.length === 0) return null;
   const raw = rows[0].data as any;

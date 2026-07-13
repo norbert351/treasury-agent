@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { getCoinIdBySymbol, toHumanReadable } from '@unicitylabs/sphere-sdk';
 import { env } from '../config.js';
-import { createUserSession, loadSession, saveSession, listSessions, refreshSessionBalance, processSessionRules, setUserNametag, parseCron, toSmallestUnits, findSessionByMnemonic, importWallet, KNOWN_COINS, COIN_DECIMALS, openSessionWallet, openSessionWalletDirect, DEFAULT_NOTIFICATION_PREFS } from '../session-manager.js';
+import { createUserSession, loadSession, loadSessionDB, saveSession, listSessions, refreshSessionBalance, processSessionRules, setUserNametag, parseCron, toSmallestUnits, findSessionByMnemonic, importWallet, KNOWN_COINS, COIN_DECIMALS, openSessionWallet, openSessionWalletDirect, DEFAULT_NOTIFICATION_PREFS } from '../session-manager.js';
 import type { NotificationPrefs } from '../session-manager.js';
 
 // Hardcoded coin IDs for testnet2 (from the token registry — avoids SDK lazy-load issue)
@@ -118,7 +118,8 @@ app.post('/api/agent/recover', async (req, res) => {
   const existingId = await findSessionByMnemonic(mnemonic);
   if (existingId) {
     // Already imported — return the existing session
-    const session = loadSession(existingId);
+    let session = loadSession(existingId);
+    if (!session) session = await loadSessionDB(existingId);
     if (session) {
       return res.json({
         token: session.id,
@@ -634,7 +635,7 @@ const isMainModule = process.argv[1]?.includes('server');
 if (!process.env.VERCEL && isMainModule) {
   // Auto-import agent wallet from AGENT_MNEMONIC if set
   if (env.AGENT_MNEMONIC) {
-    findSessionByMnemonic(env.AGENT_MNEMONIC).then(existing => {
+    findSessionByMnemonic(env.AGENT_MNEMONIC).then((existing: string | null) => {
     if (!existing) {
       importWallet(env.AGENT_MNEMONIC).then(session => {
         if (session) console.log(`[API] Agent wallet imported: ${session.address} (${session.id.slice(0, 8)})`);
