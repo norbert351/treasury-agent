@@ -578,6 +578,19 @@ export { app };
 // Standalone server (only runs when executed directly, not when imported by Vercel)
 const isMainModule = process.argv[1]?.includes('server');
 if (!process.env.VERCEL && isMainModule) {
+  // Auto-import agent wallet from AGENT_MNEMONIC if set
+  if (env.AGENT_MNEMONIC) {
+    const existing = findSessionByMnemonic(env.AGENT_MNEMONIC);
+    if (!existing) {
+      importWallet(env.AGENT_MNEMONIC).then(session => {
+        if (session) console.log(`[API] Agent wallet imported: ${session.address} (${session.id.slice(0, 8)})`);
+        else console.error('[API] Failed to import agent wallet from AGENT_MNEMONIC');
+      });
+    } else {
+      console.log(`[API] Agent wallet already loaded: ${existing}`);
+    }
+  }
+
   app.listen(env.PORT, () => {
     console.log(`[API] Treasury Manager running on http://localhost:${env.PORT}`);
     const count = listSessions().length;
