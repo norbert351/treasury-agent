@@ -5,3 +5,4 @@ import * as schema from './schema.js';
 
 const client = postgres(env.DATABASE_URL);
 export const db = drizzle(client, { schema });
+export const sql = client;

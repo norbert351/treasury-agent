@@ -53,9 +53,9 @@ app.get('/api/health', (_req, res) => {
 });
 
 /** Return the default agent session token if AGENT_MNEMONIC is configured */
-app.get('/api/agent/default-token', (_req, res) => {
+app.get('/api/agent/default-token', async (_req, res) => {
   if (env.AGENT_MNEMONIC) {
-    const id = findSessionByMnemonic(env.AGENT_MNEMONIC);
+    const id = await findSessionByMnemonic(env.AGENT_MNEMONIC);
     if (id) return res.json({ token: id, configured: true });
     // Try to import
     importWallet(env.AGENT_MNEMONIC).then(session => {
@@ -115,7 +115,7 @@ app.post('/api/agent/recover', async (req, res) => {
   if (!mnemonic || typeof mnemonic !== 'string') {
     return res.status(400).json({ error: 'mnemonic (seed phrase) is required' });
   }
-  const existingId = findSessionByMnemonic(mnemonic);
+  const existingId = await findSessionByMnemonic(mnemonic);
   if (existingId) {
     // Already imported — return the existing session
     const session = loadSession(existingId);
@@ -634,7 +634,7 @@ const isMainModule = process.argv[1]?.includes('server');
 if (!process.env.VERCEL && isMainModule) {
   // Auto-import agent wallet from AGENT_MNEMONIC if set
   if (env.AGENT_MNEMONIC) {
-    const existing = findSessionByMnemonic(env.AGENT_MNEMONIC);
+    findSessionByMnemonic(env.AGENT_MNEMONIC).then(existing => {
     if (!existing) {
       importWallet(env.AGENT_MNEMONIC).then(session => {
         if (session) console.log(`[API] Agent wallet imported: ${session.address} (${session.id.slice(0, 8)})`);
@@ -643,6 +643,7 @@ if (!process.env.VERCEL && isMainModule) {
     } else {
       console.log(`[API] Agent wallet already loaded: ${existing}`);
     }
+    }).catch(() => {});
   }
 
   app.listen(env.PORT, () => {

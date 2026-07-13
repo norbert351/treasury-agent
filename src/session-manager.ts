@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
 import { env } from './config.js';
 import { db } from './db/index.js';
+import { sql } from './db/index.js';
 import { sessions } from './db/schema.js';
 import { eq, desc } from 'drizzle-orm';
 
@@ -154,11 +155,6 @@ function sessionPath(id: string) { return resolve(SESSIONS_DIR, id); }
 function sessionFile(id: string) { return resolve(SESSIONS_DIR, id, 'session.json'); }
 
 export function listSessions(): string[] {
-  try {
-    // Try DB first
-    const rows = db.select({ id: sessions.id }).from(sessions).orderBy(desc(sessions.updatedAt)).all();
-    if (rows.length > 0) return rows.map(r => r.id);
-  } catch { /* DB not available, fall back to files */ }
   if (!existsSync(SESSIONS_DIR)) return [];
   return readdirSync(SESSIONS_DIR).filter(f => {
     try { return existsSync(resolve(SESSIONS_DIR, f, 'session.json')); }
@@ -168,29 +164,11 @@ export function listSessions(): string[] {
 
 export function loadSession(id: string): UserSession | null {
   try {
-    // Try DB first
-    const row = db.select({ data: sessions.data }).from(sessions).where(eq(sessions.id, id)).get();
-    if (row) {
-      const raw = row.data as any;
-      if (!raw.notificationPrefs) raw.notificationPrefs = { ...DEFAULT_NOTIFICATION_PREFS };
-      else {
-        const defs = DEFAULT_NOTIFICATION_PREFS;
-        for (const key of Object.keys(defs) as (keyof NotificationPrefs)[]) {
-          if (raw.notificationPrefs[key] === undefined) raw.notificationPrefs[key] = defs[key];
-        }
-      }
-      if (!raw.executionLogs) raw.executionLogs = [];
-      if (!raw.lastReceivedAt) raw.lastReceivedAt = null;
-      if (!raw.lastMsgCheckedAt) raw.lastMsgCheckedAt = null;
-      if (!raw.forwardedMessages) raw.forwardedMessages = [];
-      return raw;
-    }
-  } catch { /* DB not available */ }
-  // File fallback
-  try {
     const raw = JSON.parse(readFileSync(sessionFile(id), 'utf-8'));
+    // Backward compat: ensure new fields exist on old sessions
     if (!raw.notificationPrefs) raw.notificationPrefs = { ...DEFAULT_NOTIFICATION_PREFS };
     else {
+      // Patch missing keys within existing prefs
       const defs = DEFAULT_NOTIFICATION_PREFS;
       for (const key of Object.keys(defs) as (keyof NotificationPrefs)[]) {
         if (raw.notificationPrefs[key] === undefined) raw.notificationPrefs[key] = defs[key];
@@ -205,15 +183,35 @@ export function loadSession(id: string): UserSession | null {
 }
 
 export function saveSession(session: UserSession): void {
-  // Try DB first
-  try {
-    db.insert(sessions).values({ id: session.id, data: session as any }).onConflictDoUpdate({ target: sessions.id, set: { data: session as any, updatedAt: new Date() } }).run();
-    return;
-  } catch { /* DB not available */ }
-  // File fallback
   const dir = sessionPath(session.id);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(sessionFile(session.id), JSON.stringify(session, null, 2));
+  // Also try async DB save (non-blocking)
+  saveSessionDB(session).catch(() => {});
+}
+
+/** Async DB-only save — used by importWallet and auto-import */
+async function saveSessionDB(session: UserSession): Promise<void> {
+  await sql`INSERT INTO sessions (id, data, updated_at) VALUES (${session.id}, ${sql.json(session)}, NOW()) ON CONFLICT (id) DO UPDATE SET data = ${sql.json(session)}, updated_at = NOW()`;
+}
+
+/** Async DB-only load — used by importWallet */
+async function loadSessionDB(id: string): Promise<UserSession | null> {
+  const rows = await sql`SELECT data FROM sessions WHERE id = ${id}`;
+  if (rows.length === 0) return null;
+  const raw = rows[0].data as any;
+  if (!raw.notificationPrefs) raw.notificationPrefs = { ...DEFAULT_NOTIFICATION_PREFS };
+  else {
+    const defs = DEFAULT_NOTIFICATION_PREFS;
+    for (const key of Object.keys(defs) as (keyof NotificationPrefs)[]) {
+      if (raw.notificationPrefs[key] === undefined) raw.notificationPrefs[key] = defs[key];
+    }
+  }
+  if (!raw.executionLogs) raw.executionLogs = [];
+  if (!raw.lastReceivedAt) raw.lastReceivedAt = null;
+  if (!raw.lastMsgCheckedAt) raw.lastMsgCheckedAt = null;
+  if (!raw.forwardedMessages) raw.forwardedMessages = [];
+  return raw;
 }
 
 /**
@@ -830,8 +828,17 @@ export async function processSessionRules(session: UserSession): Promise<void> {
   }
 }
 
-export function findSessionByMnemonic(mnemonic: string): string | null {
+export async function findSessionByMnemonic(mnemonic: string): Promise<string | null> {
   const needle = mnemonic.trim().replace(/\s+/g, ' ').toLowerCase();
+  // Check DB first
+  try {
+    const rows = await sql`SELECT id, data FROM sessions`;
+    for (const r of rows) {
+      const stored = r.data?.mnemonic?.trim().replace(/\s+/g, ' ').toLowerCase();
+      if (stored === needle) return r.id as string;
+    }
+  } catch { /* DB not available */ }
+  // Fall back to files
   for (const id of listSessions()) {
     const s = loadSession(id);
     if (s && s.mnemonic) {
@@ -849,7 +856,7 @@ export function findSessionByMnemonic(mnemonic: string): string | null {
 export async function importWallet(mnemonic: string): Promise<UserSession | null> {
   const clean = mnemonic.trim().replace(/\s+/g, ' ');
   // Check if already imported
-  const existing = findSessionByMnemonic(clean);
+  const existing = await findSessionByMnemonic(clean);
   if (existing) return loadSession(existing);
 
   // Create new session with this mnemonic
@@ -863,8 +870,7 @@ export async function importWallet(mnemonic: string): Promise<UserSession | null
     // Check if DB already has this session (from seed or previous run)
     let existingData: UserSession | null = null;
     try {
-      const row = db.select({ data: sessions.data }).from(sessions).where(eq(sessions.id, id)).get();
-      if (row) existingData = row.data as UserSession;
+      existingData = await loadSessionDB(id);
     } catch { /* DB not available */ }
 
     const base = createNodeProviders({
