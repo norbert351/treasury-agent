@@ -859,6 +859,14 @@ export async function importWallet(mnemonic: string): Promise<UserSession | null
   const dataDir = sessionPath(id);
   try {
     if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+
+    // Check if DB already has this session (from seed or previous run)
+    let existingData: UserSession | null = null;
+    try {
+      const row = db.select({ data: sessions.data }).from(sessions).where(eq(sessions.id, id)).get();
+      if (row) existingData = row.data as UserSession;
+    } catch { /* DB not available */ }
+
     const base = createNodeProviders({
       network: env.UNICITY_NETWORK as any,
       oracle: { apiKey: env.UNICITY_API_KEY },
@@ -883,18 +891,19 @@ export async function importWallet(mnemonic: string): Promise<UserSession | null
       address: sphere.identity?.directAddress || '@' + id.slice(0, 8),
       directAddress: sphere.identity?.directAddress || '',
       mnemonic: clean,
-      nametag: null,
-      createdAt: new Date().toISOString(),
+      // Preserve existing data from DB if available (nametag, rules, txns, etc.)
+      nametag: existingData?.nametag ?? null,
+      createdAt: existingData?.createdAt ?? new Date().toISOString(),
       balance: '0',
       balances: {},
       lastChecked: null,
-      rules: [],
-      transactions: [],
-      notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS },
-      executionLogs: [],
-      lastReceivedAt: null,
-      lastMsgCheckedAt: null,
-      forwardedMessages: [],
+      rules: existingData?.rules ?? [],
+      transactions: existingData?.transactions ?? [],
+      notificationPrefs: existingData?.notificationPrefs ?? { ...DEFAULT_NOTIFICATION_PREFS },
+      executionLogs: existingData?.executionLogs ?? [],
+      lastReceivedAt: existingData?.lastReceivedAt ?? null,
+      lastMsgCheckedAt: existingData?.lastMsgCheckedAt ?? null,
+      forwardedMessages: existingData?.forwardedMessages ?? [],
     };
     // Read initial balances
     try {
