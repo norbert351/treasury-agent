@@ -3,6 +3,7 @@ import { createNodeProviders, createWalletApiProviders } from '@unicitylabs/sphe
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createHash } from 'crypto';
 import { env } from './config.js';
 import { db } from './db/index.js';
 import { sessions } from './db/schema.js';
@@ -853,7 +854,7 @@ export async function importWallet(mnemonic: string): Promise<UserSession | null
 
   // Create new session with this mnemonic
   // Deterministic session ID from mnemonic so re-imports get same session
-  const hash = crypto.createHash('sha256').update(clean).digest('hex');
+  const hash = createHash('sha256').update(clean).digest('hex');
   const id = hash.slice(0, 8) + '-' + hash.slice(8, 12) + '-' + hash.slice(12, 16) + '-' + hash.slice(16, 20) + '-' + hash.slice(20, 32);
   const dataDir = sessionPath(id);
   try {
