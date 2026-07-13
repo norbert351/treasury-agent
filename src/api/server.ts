@@ -635,7 +635,7 @@ const isMainModule = process.argv[1]?.includes('server');
 if (!process.env.VERCEL && isMainModule) {
   // Auto-import agent wallet from AGENT_MNEMONIC if set
   if (env.AGENT_MNEMONIC) {
-    findSessionByMnemonic(env.AGENT_MNEMONIC).then((existing: string | null) => {
+    findSessionByMnemonic(env.AGENT_MNEMONIC).then(async (existing: string | null) => {
     if (!existing) {
       importWallet(env.AGENT_MNEMONIC).then(session => {
         if (session) console.log(`[API] Agent wallet imported: ${session.address} (${session.id.slice(0, 8)})`);
@@ -643,6 +643,9 @@ if (!process.env.VERCEL && isMainModule) {
       });
     } else {
       console.log(`[API] Agent wallet already loaded: ${existing}`);
+      // Sync DB session to file so sync loadSession() finds it
+      const dbSession = await loadSessionDB(existing);
+      if (dbSession) saveSession(dbSession);
     }
     }).catch(() => {});
   }
