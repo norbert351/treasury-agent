@@ -36,16 +36,18 @@ function getSession(req: express.Request, res: express.Response): UserSession | 
     return null;
   }
 
+  // When a configured agent wallet exists, ALWAYS use that session so stale
+  // browser tokens cannot create/use a different wallet on Render.
+  if (env.AGENT_MNEMONIC) {
+    const deterministicId = 'f391fe91-3dd1-7b76-9652-ed86e5f50650';
+    const canonical = loadSession(deterministicId);
+    if (canonical) return canonical;
+    res.status(503).json({ error: 'Agent session not yet synced to disk. Please retry in a few seconds.' });
+    return null;
+  }
+
   const session = loadSession(token);
   if (session) return session;
-
-  // Render can come up with stale browser tokens pointing at pre-migration session IDs.
-  // If this token is stale but the configured agent wallet exists, serve that session instead.
-  if (env.AGENT_MNEMONIC) {
-    const configuredId = token.startsWith('f391fe91') ? token : 'f391fe91-3dd1-7b76-9652-ed86e5f50650';
-    const fallback = loadSession(configuredId);
-    if (fallback) return fallback;
-  }
 
   res.status(404).json({ error: 'Session not found. Create an agent first.' });
   return null;
@@ -79,6 +81,26 @@ app.get('/api/agent/default-token', async (_req, res) => {
 /** Create a new agent wallet for a user */
 app.post('/api/agent/create', async (_req, res) => {
   try {
+    // When a configured agent wallet exists, return that instead of creating a new one.
+    if (env.AGENT_MNEMONIC) {
+      const deterministicId = 'f391fe91-3dd1-7b76-9652-ed86e5f50650';
+      let session = loadSession(deterministicId);
+      if (!session) session = await loadSessionDB(deterministicId);
+      if (session) {
+        saveSession(session);
+        return res.status(200).json({
+          token: session.id,
+          address: session.address,
+          directAddress: session.directAddress,
+          balance: session.balance,
+          balances: session.balances,
+          createdAt: session.createdAt,
+          mnemonic: session.mnemonic,
+          nametag: session.nametag,
+          reused: true,
+        });
+      }
+    }
     const session = await createUserSession();
     if (!session) {
       return res.status(500).json({ error: 'Failed to create agent wallet' });
@@ -645,26 +667,40 @@ export { app };
 // Standalone server (only runs when executed directly, not when imported by Vercel)
 const isMainModule = process.argv[1]?.includes('server');
 if (!process.env.VERCEL && isMainModule) {
-  // Auto-import agent wallet from AGENT_MNEMONIC if set
-  if (env.AGENT_MNEMONIC) {
-    findSessionByMnemonic(env.AGENT_MNEMONIC).then(async (existing: string | null) => {
-    if (!existing) {
-      importWallet(env.AGENT_MNEMONIC).then(session => {
-        if (session) console.log(`[API] Agent wallet imported: ${session.address} (${session.id.slice(0, 8)})`);
-        else console.error('[API] Failed to import agent wallet from AGENT_MNEMONIC');
-      });
-    } else {
-      console.log(`[API] Agent wallet already loaded: ${existing}`);
-      // Sync DB session to file so sync loadSession() finds it
-      const dbSession = await loadSessionDB(existing);
-      if (dbSession) saveSession(dbSession);
+  (async () => {
+    // Auto-import agent wallet from AGENT_MNEMONIC if set
+    if (env.AGENT_MNEMONIC) {
+      const deterministicId = 'f391fe91-3dd1-7b76-9652-ed86e5f50650';
+      // Ensure DB/file sync completes BEFORE the server starts accepting requests.
+      const setup = await findSessionByMnemonic(env.AGENT_MNEMONIC);
+      if (!setup) {
+        const session = await importWallet(env.AGENT_MNEMONIC!);
+        if (session) {
+          console.log(`[API] Agent wallet imported: ${session.address} (${session.id.slice(0, 8)})`);
+          saveSession(session);
+        } else {
+          console.error('[API] Failed to import agent wallet from AGENT_MNEMONIC');
+        }
+      } else {
+        console.log(`[API] Agent wallet already loaded: ${setup}`);
+        const dbSession = await loadSessionDB(setup);
+        if (dbSession) {
+          saveSession(dbSession);
+        } else {
+          const fileSession = loadSession(setup);
+          if (fileSession) saveSession(fileSession);
+        }
+      }
+      if (!loadSession(deterministicId)) {
+        const dbSession = await loadSessionDB(deterministicId);
+        if (dbSession) saveSession(dbSession);
+      }
     }
-    }).catch(() => {});
-  }
 
-  app.listen(env.PORT, () => {
-    console.log(`[API] Treasury Manager running on http://localhost:${env.PORT}`);
-    const count = listSessions().length;
-    console.log(`[API] ${count} existing user session(s)`);
-  });
+    app.listen(env.PORT, () => {
+      console.log(`[API] Treasury Manager running on http://localhost:${env.PORT}`);
+      const count = listSessions().length;
+      console.log(`[API] ${count} existing user session(s)`);
+    });
+  })();
 }
