@@ -54,20 +54,25 @@ app.get('/api/health', (_req, res) => {
 
 /** Create a new agent wallet for a user */
 app.post('/api/agent/create', async (_req, res) => {
-  const session = await createUserSession();
-  if (!session) {
-    return res.status(500).json({ error: 'Failed to create agent wallet' });
+  try {
+    const session = await createUserSession();
+    if (!session) {
+      return res.status(500).json({ error: 'Failed to create agent wallet' });
+    }
+    res.status(201).json({
+      token: session.id,
+      address: session.address,
+      directAddress: session.directAddress,
+      balance: session.balance,
+      balances: session.balances,
+      createdAt: session.createdAt,
+      mnemonic: session.mnemonic,
+      nametag: session.nametag,
+    });
+  } catch (e: any) {
+    console.error('[API] Create agent error:', e?.stack || e);
+    res.status(500).json({ error: e?.message || 'Failed to create agent wallet' });
   }
-  res.status(201).json({
-    token: session.id,
-    address: session.address,
-    directAddress: session.directAddress,
-    balance: session.balance,
-    balances: session.balances,
-    createdAt: session.createdAt,
-    mnemonic: session.mnemonic,
-    nametag: session.nametag,
-  });
 });
 
 /** Load an existing session (returns just public data, token already known) */

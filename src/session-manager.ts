@@ -284,7 +284,11 @@ export async function createUserSession(): Promise<UserSession | null> {
     } catch { /* ok — wallet funded later */ }
 
     saveSession(session);
-    await sphere.destroy();
+    // Destroy sphere with timeout — it can hang on WebSocket cleanup
+    await Promise.race([
+      sphere.destroy(),
+      new Promise(r => setTimeout(r, 5000)),
+    ]);
     console.log(`[Session] Created session ${id} → ${session.address}`);
     return session;
   } catch (err) {
@@ -906,7 +910,10 @@ export async function importWallet(mnemonic: string): Promise<UserSession | null
       session.balance = session.balances['UCT'] || '0';
     } catch { /* ok */ }
     saveSession(session);
-    await sphere.destroy();
+    await Promise.race([
+      sphere.destroy(),
+      new Promise(r => setTimeout(r, 5000)),
+    ]);
     console.log(`[Session] Imported wallet for session ${id} → ${session.address}`);
     return session;
   } catch (err) {
