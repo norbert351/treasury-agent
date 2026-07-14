@@ -41,12 +41,22 @@ function findSessionByMnemonicSync(mnemonic: string): string | null {
   return null;
 }
 
-function getSession(req: express.Request, res: express.Response): UserSession | null {
+async function getSession(req: express.Request, res: express.Response): Promise<UserSession | null> {
   const token = (req.headers['x-session-token'] || req.query.token) as string;
   if (!token) {
     res.status(401).json({ error: 'Missing X-Session-Token header' });
     return null;
   }
+
+  // DB first — shared PostgreSQL always has the freshest data from the agent
+  try {
+    const dbSession = await loadSessionDB(token);
+    if (dbSession) {
+      // Sync to local file for fast-path next time
+      saveSession(dbSession);
+      return dbSession;
+    }
+  } catch (_) { /* DB not available */ }
 
   const session = loadSession(token);
   if (session) return session;
@@ -114,8 +124,8 @@ app.post('/api/agent/create', async (_req, res) => {
 });
 
 /** Load an existing session (returns just public data, token already known) */
-app.post('/api/agent/load', (req, res) => {
-  const session = getSession(req, res);
+app.post('/api/agent/load', async (req, res) => {
+  const session = await getSession(req, res);
   if (!session) return;
   res.json({
     token: session.id,
@@ -177,7 +187,7 @@ app.post('/api/agent/recover', async (req, res) => {
 
 /** Refresh wallet balance from the network (receive pending tokens) */
 app.post('/api/agent/refresh', async (req, res) => {
-  const session = getSession(req, res);
+  const session = await getSession(req, res);
   if (!session) return;
 
   try {
@@ -210,8 +220,8 @@ app.post('/api/agent/refresh', async (req, res) => {
 
 // ─── Session-scoped endpoints ───
 
-app.get('/api/balance', (req, res) => {
-  const session = getSession(req, res);
+app.get('/api/balance', async (req, res) => {
+  const session = await getSession(req, res);
   if (!session) return;
   res.json({
     balance: session.balance,
@@ -223,20 +233,20 @@ app.get('/api/balance', (req, res) => {
   });
 });
 
-app.get('/api/history', (req, res) => {
-  const session = getSession(req, res);
+app.get('/api/history', async (req, res) => {
+  const session = await getSession(req, res);
   if (!session) return;
   res.json({ transactions: session.transactions.slice(-50) });
 });
 
-app.get('/api/rules', (req, res) => {
-  const session = getSession(req, res);
+app.get('/api/rules', async (req, res) => {
+  const session = await getSession(req, res);
   if (!session) return;
   res.json({ rules: session.rules });
 });
 
 app.post('/api/rules', async (req, res) => {
-  const session = getSession(req, res);
+  const session = await getSession(req, res);
   if (!session) return;
 
   const { type, name, cron, recipient, amount, minBalance, targetCoin, coinSymbol, recipients } = req.body;
@@ -318,8 +328,8 @@ app.post('/api/rules', async (req, res) => {
 });
 
 // ─── PATCH / DELETE rule by id ───
-app.patch('/api/rules/:id', (req, res) => {
-  const session = getSession(req, res);
+app.patch('/api/rules/:id', async (req, res) => {
+  const session = await getSession(req, res);
   if (!session) return;
   const rule = session.rules.find(r => r.id === req.params.id);
   if (!rule) return res.status(404).json({ error: 'Rule not found' });
@@ -330,8 +340,8 @@ app.patch('/api/rules/:id', (req, res) => {
   res.json(rule);
 });
 
-app.delete('/api/rules/:id', (req, res) => {
-  const session = getSession(req, res);
+app.delete('/api/rules/:id', async (req, res) => {
+  const session = await getSession(req, res);
   if (!session) return;
   const idx = session.rules.findIndex(r => r.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Rule not found' });
@@ -341,7 +351,7 @@ app.delete('/api/rules/:id', (req, res) => {
 });
 
 app.post('/api/refresh', async (req, res) => {
-  const session = getSession(req, res);
+  const session = await getSession(req, res);
   if (!session) return;
 
   const balance = await refreshSessionBalance(session);
@@ -355,7 +365,7 @@ app.post('/api/refresh', async (req, res) => {
 
 /** Send a tip from the agent wallet to another user (sync — returns real send result) */
 app.post('/api/tip', async (req, res) => {
-  const session = getSession(req, res);
+  const session = await getSession(req, res);
   if (!session) return;
 
   const { recipient, amount, coinSymbol, message } = req.body;
@@ -416,7 +426,7 @@ app.post('/api/tip', async (req, res) => {
 
 /** Register a human-readable @nametag for the user's wallet */
 app.post('/api/agent/nametag', async (req, res) => {
-  const session = getSession(req, res);
+  const session = await getSession(req, res);
   if (!session) return;
 
   const { nametag } = req.body;
@@ -434,22 +444,22 @@ app.post('/api/agent/nametag', async (req, res) => {
 
 // ─── Execution Log ───
 
-app.get('/api/logs', (req, res) => {
-  const session = getSession(req, res);
+app.get('/api/logs', async (req, res) => {
+  const session = await getSession(req, res);
   if (!session) return;
   res.json({ logs: (session.executionLogs || []).slice(-100) });
 });
 
 // ─── Notification Preferences ───
 
-app.get('/api/notifications/prefs', (req, res) => {
-  const session = getSession(req, res);
+app.get('/api/notifications/prefs', async (req, res) => {
+  const session = await getSession(req, res);
   if (!session) return;
   res.json({ prefs: session.notificationPrefs || { ...DEFAULT_NOTIFICATION_PREFS } });
 });
 
-app.post('/api/notifications/prefs', (req, res) => {
-  const session = getSession(req, res);
+app.post('/api/notifications/prefs', async (req, res) => {
+  const session = await getSession(req, res);
   if (!session) return;
 
   const { onRuleExecution, onDeposit, onError, onThreshold, dmEnabled, dmRecipient, webhookUrl } = req.body;
@@ -468,14 +478,14 @@ app.post('/api/notifications/prefs', (req, res) => {
 
 // ─── Forwarded Messages Inbox ───
 
-app.get('/api/messages', (req, res) => {
-  const session = getSession(req, res);
+app.get('/api/messages', async (req, res) => {
+  const session = await getSession(req, res);
   if (!session) return;
   res.json({ messages: (session.forwardedMessages || []).slice(-50) });
 });
 
-app.post('/api/messages/read', (req, res) => {
-  const session = getSession(req, res);
+app.post('/api/messages/read', async (req, res) => {
+  const session = await getSession(req, res);
   if (!session) return;
   const { ids } = req.body;
   if (Array.isArray(ids)) {
@@ -489,7 +499,7 @@ app.post('/api/messages/read', (req, res) => {
 
 /** Reply to a DM — detects natural language commands or sends as DM */
 app.post('/api/messages/reply', async (req, res) => {
-  const session = getSession(req, res);
+  const session = await getSession(req, res);
   if (!session) return;
   const { to, content } = req.body;
   if (!to || !content) return res.status(400).json({ error: 'to and content required' });
