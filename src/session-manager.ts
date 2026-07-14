@@ -619,9 +619,12 @@ export async function processSessionRules(session: UserSession): Promise<void> {
 
   try {
     // Snapshot old balances to detect incoming funds
-    const oldBals = { ...(session.balances || {}) };
+    if (!session.balances) session.balances = {};
+    const oldBals: Record<string, string> = {};
+    for (const sym of KNOWN_COINS) oldBals[sym] = session.balances[sym] || '0';
 
-    // Pull incoming transfers from wallet-api mailbox — capture sender + token info
+    // Pull incoming transfers from wallet-api mailbox — capture sender + token info.
+    // Call receive() BEFORE reading balances so any arrived tokens are materialized.
     let incomingTxHashes: Array<{ sym: string; txHash: string; sender: string; amount: string }> = [];
     try {
       const result = await sphere.payments.receive() as any;
@@ -640,10 +643,7 @@ export async function processSessionRules(session: UserSession): Promise<void> {
       if (!String(e?.message || '').includes('No transfers')) console.warn('[Agent] receive() note:', e?.message);
     }
 
-    // Init balances map for old sessions
-    if (!session.balances) session.balances = {};
-
-    // Refresh all coin balances
+    // Refresh all coin balances AFTER receive() so deposits are reflected immediately.
     for (const sym of KNOWN_COINS) {
       const id = getCoinIdBySymbol(sym);
       if (!id) continue;
@@ -654,15 +654,19 @@ export async function processSessionRules(session: UserSession): Promise<void> {
     session.balance = session.balances['UCT'] || '0';
     session.lastChecked = new Date().toISOString();
 
-    // Detect new deposits by comparing old vs new balances
+    // Detect new deposits by comparing old vs new balances.
+    // Also use receive() transfer details so each deposit is logged once with txHash/sender.
     const now = new Date().toISOString();
     for (const sym of KNOWN_COINS) {
       const oldAmt = BigInt(oldBals[sym] || '0');
       const newAmt = BigInt(session.balances[sym] || '0');
       if (newAmt > oldAmt) {
         const diff = (newAmt - oldAmt).toString();
-        // Look up txHash/sender from receive() result
-        const match = incomingTxHashes.find(i => i.sym === sym);
+        // Prefer the receive() transfer for this coin; fall back to any positive delta.
+        const matches = incomingTxHashes.filter(i => i.sym === sym);
+        const match = matches.length === 1 ? matches[0] : (
+          matches.find(i => BigInt(i.amount || '0') === BigInt(diff)) || matches[0] || null
+        );
         session.transactions.push({
           id: crypto.randomUUID(),
           type: 'receive',
@@ -688,9 +692,8 @@ export async function processSessionRules(session: UserSession): Promise<void> {
         });
         // Notify if onDeposit pref is enabled (default true)
         if (session.notificationPrefs?.onDeposit !== false) {
-          // Skip notification if we already notified for a deposit at this balance level
-          const alreadyNotified = session.lastReceivedAt &&
-            oldBals[sym] === '0' && session.lastReceivedAt === now;
+          // Avoid duplicate notifications when the same balance is re-evaluated in one cycle.
+          const alreadyNotified = session.lastReceivedAt && session.lastReceivedAt === now;
           if (!alreadyNotified) {
             await sendNotification(sphere, session, 'Deposit Received', '📥 ' + fmtHuman(diff, sym) + ' ' + sym + ' arrived in your wallet');
           }

@@ -29,6 +29,18 @@ app.use(express.static(ROOT));
 
 // ─── Helpers ───
 
+function findSessionByMnemonicSync(mnemonic: string): string | null {
+  const needle = mnemonic.trim().replace(/\s+/g, ' ').toLowerCase();
+  for (const id of listSessions()) {
+    const sess = loadSession(id);
+    if (sess && sess.mnemonic) {
+      const stored = sess.mnemonic.trim().replace(/\s+/g, ' ').toLowerCase();
+      if (stored === needle) return id;
+    }
+  }
+  return null;
+}
+
 function getSession(req: express.Request, res: express.Response): UserSession | null {
   const token = (req.headers['x-session-token'] || req.query.token) as string;
   if (!token) {
@@ -39,12 +51,14 @@ function getSession(req: express.Request, res: express.Response): UserSession | 
   const session = loadSession(token);
   if (session) return session;
 
-  // Render can come up with stale browser tokens pointing at pre-migration session IDs.
-  // If this token is stale but the configured agent wallet exists, serve that session instead.
+  // Render / browser tokens may be stale (pre-migration IDs, old localStorage, etc).
+  // If a configured agent wallet exists, resolve it by mnemonic and serve that session.
   if (env.AGENT_MNEMONIC) {
-    const configuredId = token.startsWith('f391fe91') ? token : 'f391fe91-3dd1-7b76-9652-ed86e5f50650';
-    const fallback = loadSession(configuredId);
-    if (fallback) return fallback;
+    const configuredId = findSessionByMnemonicSync(env.AGENT_MNEMONIC);
+    if (configuredId) {
+      const fallback = loadSession(configuredId);
+      if (fallback) return fallback;
+    }
   }
 
   res.status(404).json({ error: 'Session not found. Create an agent first.' });
